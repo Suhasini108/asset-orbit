@@ -132,7 +132,7 @@ export async function sendRealEmail({ to, subject, message, priority = 'High', c
 
     // Also attempt Express server endpoint if reachable
     try {
-      fetch('http://localhost:5000/api/notifications/send-email', {
+      fetch('/api/notifications/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: recipient, subject, message, priority, category, details })

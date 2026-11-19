@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { api } from '../services/apiClient';
 
 const AuthContext = createContext();
 
@@ -195,6 +196,17 @@ export function AuthProvider({ children }) {
 
     setRegisteredEmployees(prev => [newEmp, ...prev]);
     setCurrentUser(newEmp);
+
+    // Sync with backend API to obtain server-signed JWT token
+    api.post('/auth/register', { name: cleanName, email: cleanEmail, department: department || 'CSE', password })
+      .then(res => {
+        if (res.ok && res.raw?.token) {
+          sessionStorage.setItem('assetorbit_session_token', res.raw.token);
+          localStorage.setItem('assetorbit_token', res.raw.token);
+        }
+      })
+      .catch(() => {});
+
     return { success: true, user: newEmp };
   };
 
@@ -228,6 +240,16 @@ export function AuthProvider({ children }) {
         name: adminName === 'Admin' ? 'Admin' : `${adminName} (Admin)`
       };
       setCurrentUser(adminUser);
+
+      // Sync with backend API
+      api.post('/auth/login', { email: finalAdminEmail, password: enteredPassword, roleHint: 'Admin' })
+        .then(res => {
+          if (res.ok && res.raw?.token) {
+            sessionStorage.setItem('assetorbit_session_token', res.raw.token);
+            localStorage.setItem('assetorbit_token', res.raw.token);
+          }
+        }).catch(() => {});
+
       return { success: true, user: adminUser };
     }
 
@@ -244,6 +266,16 @@ export function AuthProvider({ children }) {
         name: itManagerName === 'Kiran V' ? 'Kiran V' : `${itManagerName} (IT Manager)`
       };
       setCurrentUser(itManagerUser);
+
+      // Sync with backend API
+      api.post('/auth/login', { email: enteredEmail || 'itmanager@assetorbit.edu', password: enteredPassword, roleHint: 'IT Manager' })
+        .then(res => {
+          if (res.ok && res.raw?.token) {
+            sessionStorage.setItem('assetorbit_session_token', res.raw.token);
+            localStorage.setItem('assetorbit_token', res.raw.token);
+          }
+        }).catch(() => {});
+
       return { success: true, user: itManagerUser };
     }
 
@@ -253,6 +285,16 @@ export function AuthProvider({ children }) {
     if (matchedEmployee) {
       if (matchedEmployee.password === enteredPassword || enteredPassword === 'Employee@123') {
         setCurrentUser(matchedEmployee);
+
+        // Sync with backend API
+        api.post('/auth/login', { email: matchedEmployee.email, password: enteredPassword, roleHint: 'Employee' })
+          .then(res => {
+            if (res.ok && res.raw?.token) {
+              sessionStorage.setItem('assetorbit_session_token', res.raw.token);
+              localStorage.setItem('assetorbit_token', res.raw.token);
+            }
+          }).catch(() => {});
+
         return { success: true, user: matchedEmployee };
       } else {
         return { success: false, error: 'Incorrect password for this employee account.' };

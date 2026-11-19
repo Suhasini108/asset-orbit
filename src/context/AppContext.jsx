@@ -12,6 +12,7 @@ import {
 } from '../data/collegeSampleData';
 import { INITIAL_SOFTWARE_CATALOGUE } from '../data/softwareCatalogue';
 import { dispatchAutomaticNotification } from '../services/emailService';
+import { api } from '../services/apiClient';
 
 const AppContext = createContext();
 
@@ -162,6 +163,27 @@ export function AppProvider({ children }) {
   useEffect(() => { localStorage.setItem('ao_loss_theft', JSON.stringify(lossTheftReports)); }, [lossTheftReports]);
   useEffect(() => { localStorage.setItem('ao_warranty_claims', JSON.stringify(warrantyClaims)); }, [warrantyClaims]);
   useEffect(() => { localStorage.setItem('ao_replacements', JSON.stringify(replacementRequests)); }, [replacementRequests]);
+
+  // Initial Background API Fetch (syncs with MongoDB if online)
+  useEffect(() => {
+    api.get('/assets').then(res => {
+      if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+        setAssets(res.data);
+      }
+    }).catch(() => {});
+
+    api.get('/subscriptions').then(res => {
+      if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+        setSubscriptions(res.data);
+      }
+    }).catch(() => {});
+
+    api.get('/tickets').then(res => {
+      if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+        setTickets(res.data);
+      }
+    }).catch(() => {});
+  }, []);
   useEffect(() => { localStorage.setItem('ao_active_audit', JSON.stringify(activeAuditSession)); }, [activeAuditSession]);
   useEffect(() => { localStorage.setItem('ao_platform_sub', JSON.stringify(platformSubscription)); }, [platformSubscription]);
   useEffect(() => { localStorage.setItem('ao_activity_logs', JSON.stringify(activityLogs)); }, [activityLogs]);
