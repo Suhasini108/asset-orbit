@@ -413,42 +413,54 @@ export default function LoginPage() {
                   {/* Main Dashboard Content on Screen */}
                   <g transform="translate(35, 10)">
                     
-                    {/* Metric Card 1: Total Assets 24 */}
-                    <rect x="0" y="0" width="88" height="46" rx="5" fill="#FFFFFF" stroke="#E5EAE5" strokeWidth="1" />
+                    {/* Metric Card 1: Hardware Fleet (Aesthetic Status Badge - No Hardcoded Counts) */}
+                    <rect x="0" y="0" width="88" height="46" rx="6" fill="#FFFFFF" stroke="#D1E2D7" strokeWidth="1" />
                     <rect x="6" y="6" width="16" height="14" rx="3" fill="#E6EFE8" />
                     <path d="M 9 9 H 19 V 16 H 9 Z" fill="#315F50" />
                     <line x1="8" y1="17" x2="20" y2="17" stroke="#315F50" strokeWidth="1.2" strokeLinecap="round" />
-                    <text x="26" y="13" fill="#718078" fontSize="6.5" fontWeight="600" fontFamily="sans-serif">Total Assets</text>
-                    <text x="26" y="27" fill="#172D27" fontSize="13" fontWeight="900" fontFamily="sans-serif">24</text>
+                    <text x="26" y="14" fill="#172D27" fontSize="7" fontWeight="700" fontFamily="sans-serif">Hardware Fleet</text>
+                    <rect x="26" y="18" width="56" height="13" rx="3.5" fill="#E6EFE8" />
+                    <circle cx="32" cy="24.5" r="2" fill="#244B3E" />
+                    <text x="37" y="26.5" fill="#244B3E" fontSize="6.5" fontWeight="800" fontFamily="sans-serif">Active • ISE Lab</text>
+                    <text x="6" y="38" fill="#718078" fontSize="5.5" fontWeight="500" fontFamily="sans-serif">Allocated & Verified</text>
 
-                    {/* Metric Card 2: Active Subscriptions 8 */}
-                    <rect x="94" y="0" width="88" height="46" rx="5" fill="#FFFFFF" stroke="#E5EAE5" strokeWidth="1" />
+                    {/* Metric Card 2: Software Licenses (Aesthetic Status Badge - No Hardcoded Counts) */}
+                    <rect x="94" y="0" width="88" height="46" rx="6" fill="#FFFFFF" stroke="#D1E2D7" strokeWidth="1" />
                     <rect x="100" y="6" width="16" height="14" rx="3" fill="#E6EFE8" />
                     <rect x="103" y="9" width="10" height="8" rx="1.5" fill="#315F50" />
                     <line x1="105" y1="8" x2="105" y2="9.5" stroke="#315F50" strokeWidth="1" />
                     <line x1="111" y1="8" x2="111" y2="9.5" stroke="#315F50" strokeWidth="1" />
-                    <text x="120" y="13" fill="#718078" fontSize="6.5" fontWeight="600" fontFamily="sans-serif">Active Subscriptions</text>
-                    <text x="120" y="27" fill="#172D27" fontSize="13" fontWeight="900" fontFamily="sans-serif">8</text>
+                    <text x="120" y="14" fill="#172D27" fontSize="7" fontWeight="700" fontFamily="sans-serif">Software Licenses</text>
+                    <rect x="120" y="18" width="58" height="13" rx="3.5" fill="#E6EFE8" />
+                    <circle cx="126" cy="24.5" r="2" fill="#244B3E" />
+                    <text x="131" y="26.5" fill="#244B3E" fontSize="6.5" fontWeight="800" fontFamily="sans-serif">Campuswide Suite</text>
+                    <text x="100" y="38" fill="#718078" fontSize="5.5" fontWeight="500" fontFamily="sans-serif">MathWorks MATLAB</text>
 
                     {/* Trend Line Chart Box */}
                     <g transform="translate(0, 52)">
-                      <rect width="182" height="64" rx="5" fill="#FFFFFF" stroke="#E5EAE5" strokeWidth="1" />
+                      <rect width="182" height="64" rx="6" fill="#FFFFFF" stroke="#D1E2D7" strokeWidth="1" />
                       
+                      {/* Chart Header Bar */}
+                      <text x="10" y="12" fill="#172D27" fontSize="6.5" fontWeight="700" fontFamily="sans-serif">Lifecycle Health & Performance</text>
+                      <rect x="126" y="5" width="46" height="9" rx="2.5" fill="#E6EFE8" />
+                      <circle cx="131" cy="9.5" r="1.5" fill="#244B3E" />
+                      <text x="135" y="11.5" fill="#244B3E" fontSize="5.5" fontWeight="800" fontFamily="sans-serif">99.4% Uptime</text>
+
                       {/* Subtle horizontal grid lines */}
-                      <line x1="10" y1="18" x2="172" y2="18" stroke="#F0F4F1" strokeWidth="1" />
-                      <line x1="10" y1="36" x2="172" y2="36" stroke="#F0F4F1" strokeWidth="1" />
+                      <line x1="10" y1="22" x2="172" y2="22" stroke="#F0F4F1" strokeWidth="1" />
+                      <line x1="10" y1="38" x2="172" y2="38" stroke="#F0F4F1" strokeWidth="1" />
                       <line x1="10" y1="52" x2="172" y2="52" stroke="#F0F4F1" strokeWidth="1" />
 
                       {/* Filled Trend Gradient */}
                       <path
-                        d="M 14 46 Q 38 48 54 38 T 94 40 T 134 26 T 170 14 V 58 H 14 Z"
+                        d="M 14 46 Q 38 48 54 38 T 94 40 T 134 26 T 170 18 V 58 H 14 Z"
                         fill="url(#chartGrad)"
                       />
 
                       {/* Trend Stroke Line */}
                       <path
-                        d="M 14 46 Q 38 48 54 38 T 94 40 T 134 26 T 170 14"
-                        stroke="#5E8D77"
+                        d="M 14 46 Q 38 48 54 38 T 94 40 T 134 26 T 170 18"
+                        stroke="#315F50"
                         strokeWidth="2"
                         fill="none"
                         strokeLinecap="round"
@@ -459,7 +471,7 @@ export default function LoginPage() {
                       <circle cx="54" cy="38" r="2.5" fill="#FFFFFF" stroke="#315F50" strokeWidth="1.5" />
                       <circle cx="94" cy="40" r="2.5" fill="#FFFFFF" stroke="#315F50" strokeWidth="1.5" />
                       <circle cx="134" cy="26" r="2.5" fill="#FFFFFF" stroke="#315F50" strokeWidth="1.5" />
-                      <circle cx="170" cy="14" r="2.5" fill="#FFFFFF" stroke="#315F50" strokeWidth="1.5" />
+                      <circle cx="170" cy="18" r="2.5" fill="#FFFFFF" stroke="#315F50" strokeWidth="1.5" />
                     </g>
                   </g>
 

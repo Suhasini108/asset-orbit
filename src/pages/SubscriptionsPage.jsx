@@ -16,12 +16,14 @@ import {
   RotateCcw,
   CheckCircle2,
   Filter,
-  Check
+  Check,
+  UserPlus
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { exportToCsv } from '../data/templates';
 import AddSubscriptionModal from '../components/subscriptions/AddSubscriptionModal';
+import AssignSubscriptionModal from '../components/subscriptions/AssignSubscriptionModal';
 
 export default function SubscriptionsPage({ initialTab = 'all' }) {
   const { subscriptions, deleteSubscription } = useApp();
@@ -41,6 +43,7 @@ export default function SubscriptionsPage({ initialTab = 'all' }) {
   const [selectedCycle, setSelectedCycle] = useState('all');
   const [renewalFilter, setRenewalFilter] = useState(isRenewalsRoute ? '30days' : 'all'); // 'all' | '7days' | '30days' | '90days' | 'autorenew'
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [assigningSubscription, setAssigningSubscription] = useState(null);
 
   useEffect(() => {
     if (isRenewalsRoute && renewalFilter === 'all') {
@@ -201,13 +204,23 @@ export default function SubscriptionsPage({ initialTab = 'all' }) {
             </button>
 
             {isManagement && (
-              <button
-                onClick={() => setAddModalOpen(true)}
-                className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-[#234937] transition-all shadow-md"
-              >
-                <Plus className="w-4 h-4 text-[#234937]" />
-                <span>Add subscription</span>
-              </button>
+              <>
+                <button
+                  onClick={() => setAssigningSubscription(subscriptions[0] || null)}
+                  className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#badcc9] hover:bg-[#d8eee1] text-[#172D27] transition-all shadow-md"
+                  title="Assign Software License to Employee"
+                >
+                  <UserPlus className="w-4 h-4 text-[#172D27]" />
+                  <span>Assign to Employee</span>
+                </button>
+                <button
+                  onClick={() => setAddModalOpen(true)}
+                  className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-[#234937] transition-all shadow-md"
+                >
+                  <Plus className="w-4 h-4 text-[#234937]" />
+                  <span>Add subscription</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -508,11 +521,21 @@ export default function SubscriptionsPage({ initialTab = 'all' }) {
                       </td>
 
                       {/* Actions */}
-                      <td className="py-3.5 px-6 text-right space-x-2">
+                      <td className="py-3.5 px-6 text-right space-x-2 whitespace-nowrap">
+                        {isManagement && (
+                          <button
+                            onClick={() => setAssigningSubscription(sub)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#E6EFE8] text-[#315F50] hover:bg-[#315F50] hover:text-white transition-all inline-flex items-center space-x-1 shadow-xs"
+                            title={`Assign ${sub.name} to Employee`}
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>Assign</span>
+                          </button>
+                        )}
                         {isAdmin ? (
                           <button
                             onClick={() => handleDeleteSub(sub.id, sub.name || sub.softwareName)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors inline-flex items-center"
                             title="Admin Authority: Delete Subscription"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -537,6 +560,15 @@ export default function SubscriptionsPage({ initialTab = 'all' }) {
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
       />
+
+      {/* Assign Subscription to Employee Modal */}
+      {assigningSubscription && (
+        <AssignSubscriptionModal
+          isOpen={!!assigningSubscription}
+          onClose={() => setAssigningSubscription(null)}
+          subscription={assigningSubscription}
+        />
+      )}
     </div>
   );
 }
