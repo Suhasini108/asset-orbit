@@ -624,21 +624,41 @@ export default function LoginPage() {
               {/* Department */}
               <div>
                 <label className="block text-xs font-bold text-[#172D27] mb-1">
-                  Department / Engineering Branch
+                  Department / Sub-Branch *
                 </label>
                 <select
                   value={signupDept}
                   onChange={(e) => setSignupDept(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#cbdcd0] text-xs text-[#172D27] focus:outline-none focus:border-[#315F50]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#cbdcd0] text-xs text-[#172D27] focus:outline-none focus:border-[#315F50] bg-white font-medium"
                 >
-                  <option value="CSE">CSE (Computer Science)</option>
-                  <option value="ISE">ISE (Information Science)</option>
-                  <option value="AI&ML">AI&amp;ML (Artificial Intelligence)</option>
-                  <option value="ECE">ECE (Electronics &amp; Comm)</option>
-                  <option value="EEE">EEE (Electrical &amp; Electronics)</option>
-                  <option value="Mechanical">Mechanical Engineering</option>
-                  <option value="Civil">Civil Engineering</option>
-                  <option value="Operations & IT">Operations &amp; IT</option>
+                  <optgroup label="1. Engineering Departments">
+                    <option value="CSE">CSE (Computer Science &amp; Engineering)</option>
+                    <option value="ISE">ISE (Information Science &amp; Engineering)</option>
+                    <option value="AI&ML">AI&amp;ML (Artificial Intelligence &amp; ML)</option>
+                    <option value="ECE">ECE (Electronics &amp; Communication)</option>
+                    <option value="EEE">EEE (Electrical &amp; Electronics)</option>
+                    <option value="Mechanical">Mechanical Engineering</option>
+                    <option value="Civil">Civil Engineering</option>
+                  </optgroup>
+                  <optgroup label="2. Operations &amp; Campus IT">
+                    <option value="IT Center">IT Center &amp; Systems Admin</option>
+                    <option value="Campus Networking">Campus Networking</option>
+                    <option value="Data Center">Data Center &amp; Server Infrastructure</option>
+                    <option value="Audio Visual">Audio Visual &amp; Smart Classrooms</option>
+                    <option value="Campus Security">Campus Security Hardware &amp; Access Control</option>
+                  </optgroup>
+                  <optgroup label="3. Central Administration">
+                    <option value="Principal Office">Principal Office</option>
+                    <option value="Dean Academic">Dean Academic Affairs</option>
+                    <option value="Registrar">Registrar Office</option>
+                    <option value="Examination Cell">Examination Cell</option>
+                    <option value="Accounts &amp; Finance">Accounts &amp; Finance</option>
+                  </optgroup>
+                  <optgroup label="4. Basic Sciences &amp; Research">
+                    <option value="Physics Lab">Applied Physics Lab</option>
+                    <option value="Chemistry Lab">Chemistry &amp; Material Sciences</option>
+                    <option value="Mathematics Research">Mathematics &amp; Computational Research</option>
+                  </optgroup>
                 </select>
               </div>
 

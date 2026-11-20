@@ -111,6 +111,7 @@ export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset 
   const [deskLocation, setDeskLocation] = useState(targetAsset?.labRoom || targetAsset?.location || '');
   const [assignmentNotes, setAssignmentNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [assignedSuccess, setAssignedSuccess] = useState(false);
 
   // Sync desk location when target asset changes
   useEffect(() => {
@@ -136,7 +137,7 @@ export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset 
   const currentSelectedEmployee = (registeredEmployees || []).find(e => e.email === selectedEmployeeEmail);
   const isAvailableAsset = targetAsset.status === 'Available' || targetAsset.status === 'Unassigned';
 
-  const handleAssign = async (e) => {
+  const handleAssign = (e) => {
     e.preventDefault();
     setSubmitting(true);
 
@@ -174,21 +175,10 @@ export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset 
       statusChangeNote: `Assigned to ${empName} (${empEmail}) in ${empDept} by ${currentUser?.name || 'Admin'} (${currentUser?.role || 'Staff'}). Notes: ${assignmentNotes || 'N/A'}`
     };
 
-    // 1. Update in local state via AppContext
+    // 1. Immediately update in local state via AppContext (instant reactive feedback)
     updateAsset(targetAsset.id, updatedData, currentUser?.name || 'Administrator');
 
-    // 2. Sync with backend API
-    try {
-      await api.post(`/assets/${targetAsset.id}/assign`, {
-        employeeName: empName,
-        employeeEmail: empEmail,
-        location: deskLocation || targetAsset.location,
-        notes: assignmentNotes
-      });
-    } catch (err) {
-      console.warn('Backend sync failed, saved locally in context:', err);
-    }
-
+    // 2. Notification
     addNotification({
       title: `Asset Assigned: ${targetAsset.name}`,
       description: `Equipment allocated to ${empName} (${empDept}) by ${currentUser?.name || 'Management'}.`,
@@ -197,13 +187,27 @@ export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset 
       link: '/assets'
     });
 
-    setSubmitting(false);
-    onClose();
+    // 3. Fire-and-forget backend sync in background (non-blocking, never freezes the button)
+    api.post(`/assets/${targetAsset.id}/assign`, {
+      assignee: empName,
+      employeeName: empName,
+      employeeEmail: empEmail,
+      location: deskLocation || targetAsset.location,
+      notes: assignmentNotes
+    }).catch(() => {});
+
+    // 4. Visibly change button to Assigned Successfully, then close modal smoothly
+    setAssignedSuccess(true);
+    setTimeout(() => {
+      setSubmitting(false);
+      setAssignedSuccess(false);
+      onClose();
+    }, 600);
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-[#E5EAE5] flex flex-col max-h-[88vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 font-sans">
+    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm overflow-y-auto p-3 sm:p-5 flex justify-center items-start">
+      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-[#E5EAE5] flex flex-col max-h-[calc(100vh-2.5rem)] min-h-0 my-auto animate-in fade-in zoom-in-95 duration-200 font-sans">
         
         {/* Pinned Modal Header (Guaranteed NEVER Cut Off) */}
         <div className="px-6 py-4 border-b border-[#E5EAE5] flex items-center justify-between bg-[#F7F8F5] flex-shrink-0">
@@ -230,7 +234,7 @@ export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset 
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleAssign} className="p-6 space-y-4 overflow-y-auto flex-1">
+        <form onSubmit={handleAssign} className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           
           {/* Target Equipment Selector (Allows choosing any available asset) */}
           <div className="space-y-1.5">
@@ -305,9 +309,9 @@ export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset 
               <button
                 type="button"
                 onClick={() => { setSelectedCategory('all'); setSelectedSubBranch('all'); }}
-                className="text-[10px] font-bold text-[#315F50] hover:underline cursor-pointer"
+                className="text-[10px] font-bold text-[#315F50] hover:underline cursor-pointer bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200"
               >
-                Reset Filters
+                Show All Staff ({registeredEmployees.length})
               </button>
             </div>
 
@@ -325,6 +329,7 @@ export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset 
                   }}
                   className="w-full px-3 py-2 rounded-xl border border-[#CBDCD0] text-xs font-semibold text-[#172D27] bg-white focus:outline-none focus:border-[#315F50]"
                 >
+                  <option value="all">Campus-wide (All Categories &amp; Staff)</option>
                   {CATEGORIES.map(c => (
                     <option key={c.id} value={c.name}>{c.name}</option>
                   ))}
@@ -341,7 +346,11 @@ export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset 
                   onChange={(e) => setSelectedSubBranch(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-[#CBDCD0] text-xs font-semibold text-[#172D27] bg-white focus:outline-none focus:border-[#315F50]"
                 >
-                  <option value="all">All Sub-Branches ({availableSubBranches.length})</option>
+                  <option value="all">
+                    {selectedCategory === 'all' 
+                      ? `All Departments (${registeredEmployees.length} Total Staff)` 
+                      : `All Sub-Branches (${availableSubBranches.length})`}
+                  </option>
                   {availableSubBranches.map(sb => (
                     <option key={sb} value={sb}>{sb}</option>
                   ))}
@@ -480,17 +489,36 @@ export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset 
             <button
               type="button"
               onClick={onClose}
+              disabled={submitting}
               className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#718078] hover:bg-[#F7F8F5] transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={submitting}
-              className="px-5 py-2.5 rounded-xl text-xs font-extrabold bg-[#315F50] hover:bg-[#244B3E] text-white shadow-md transition-all flex items-center space-x-2 cursor-pointer"
+              disabled={submitting || assignedSuccess}
+              className={`px-5 py-2.5 rounded-xl text-xs font-extrabold shadow-md transition-all flex items-center space-x-2 cursor-pointer ${
+                assignedSuccess
+                  ? 'bg-emerald-600 text-white shadow-emerald-600/30 ring-2 ring-emerald-400'
+                  : 'bg-[#315F50] hover:bg-[#244B3E] text-white shadow-[#315F50]/20'
+              }`}
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{submitting ? 'Assigning...' : 'Confirm Assignment'}</span>
+              {assignedSuccess ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <span>Assigned Successfully!</span>
+                </>
+              ) : submitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Assigning...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Confirm Assignment</span>
+                </>
+              )}
             </button>
           </div>
         </form>

@@ -37,16 +37,21 @@ export async function connectToDatabase() {
   if (cachedDb && mongoose.connection.readyState === 1) {
     return cachedDb;
   }
+  const isVercel = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
+  if (isVercel && !process.env.MONGODB_URI) {
+    // In serverless environment without explicit remote Mongo URI, do not stall on 127.0.0.1
+    return null;
+  }
   const uri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/enterprise_assets_manager";
   try {
     cachedDb = await mongoose.connect(uri, {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 5000
+      serverSelectionTimeoutMS: 2000
     });
     console.log("✓ MongoDB connected successfully");
     return cachedDb;
   } catch (err) {
-    console.error("MongoDB connection notice:", err.message);
+    console.warn("MongoDB connection notice:", err.message);
     return null;
   }
 }

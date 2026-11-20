@@ -113,17 +113,23 @@ export default function SubscriptionsPage({ initialTab = 'all' }) {
     return subscriptions.filter(s => {
       // RBAC: If requester is Employee, restrict strictly to their department or assigned software
       if (isEmployee) {
-        const empDept = (currentUser?.department || '').toLowerCase();
-        const empName = (currentUser?.name || '').toLowerCase();
-        const empEmail = (currentUser?.email || '').toLowerCase();
-        const sDept = (s.department || '').toLowerCase();
-        const sOwner = (s.owner || '').toLowerCase();
-        const sAssigned = (s.assignedEmployee || '').toLowerCase();
-        const sAssignedEmail = (s.assignedEmail || '').toLowerCase();
+        const empDept = (currentUser?.department || '').toLowerCase().trim();
+        const empName = (currentUser?.name || '').toLowerCase().trim();
+        const empEmail = (currentUser?.email || '').toLowerCase().trim();
+        const sDept = (s.department || '').toLowerCase().trim();
+        const sOwner = (s.owner || '').toLowerCase().trim();
+        const sAssigned = (s.assignedEmployee || '').toLowerCase().trim();
+        const sAssignedEmail = (s.assignedEmail || '').toLowerCase().trim();
 
-        const matchesEmployee = sDept === empDept || sDept === 'all' || sDept === 'engineering' ||
-                                sOwner.includes(empName) || sAssigned.includes(empName) ||
-                                sAssignedEmail === empEmail;
+        const matchesEmployee = Boolean(
+          (empEmail && sAssignedEmail === empEmail) ||
+          (empName && sAssigned.includes(empName)) ||
+          (empName && sOwner.includes(empName)) ||
+          (sDept && sDept === empDept) ||
+          sDept === 'all' ||
+          sDept === 'campus-wide' ||
+          sDept === 'engineering'
+        );
         if (!matchesEmployee) return false;
       }
 

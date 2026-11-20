@@ -117,14 +117,27 @@ export default function AssetsPage({ onOpenAddAsset, onSelectAsset, onReportIssu
     return assets.filter(asset => {
       // If Employee role: strictly restrict to equipment assigned to this employee
       if (isEmployee) {
-        const empName = (currentUser?.name || '').toLowerCase();
-        const empEmail = (currentUser?.email || '').toLowerCase();
-        const matchesEmployee = 
-          (asset.assignedTo && asset.assignedTo.toLowerCase().includes(empName)) ||
-          (asset.assignedUser && asset.assignedUser.toLowerCase().includes(empName)) ||
-          (asset.assignedEmail && asset.assignedEmail.toLowerCase() === empEmail);
+        const empName = (currentUser?.name || '').toLowerCase().trim();
+        const empEmail = (currentUser?.email || '').toLowerCase().trim();
+        const matchesEmployee = Boolean(
+          (empName && asset.assignedTo && asset.assignedTo.toLowerCase().includes(empName)) ||
+          (empName && asset.assignedUser && asset.assignedUser.toLowerCase().includes(empName)) ||
+          (empEmail && asset.assignedEmail && asset.assignedEmail.toLowerCase() === empEmail)
+        );
 
         if (!matchesEmployee) return false;
+
+        // For Employee view: search filter over their assigned devices
+        const q = searchQuery.toLowerCase().trim();
+        const matchesSearch = !q || (
+          (asset.name && asset.name.toLowerCase().includes(q)) ||
+          (asset.id && asset.id.toLowerCase().includes(q)) ||
+          (asset.serialNumber && asset.serialNumber.toLowerCase().includes(q)) ||
+          (asset.labRoom && asset.labRoom.toLowerCase().includes(q)) ||
+          (asset.location && asset.location.toLowerCase().includes(q)) ||
+          (asset.subBranch && asset.subBranch.toLowerCase().includes(q))
+        );
+        return matchesSearch;
       }
 
       // 1. Search query

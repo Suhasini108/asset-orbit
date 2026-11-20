@@ -48,16 +48,30 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
   const isAdmin = currentUser.role === 'Admin';
   const isITManager = currentUser.role === 'IT Manager';
 
-  // Calculate filtered counts for Employee
-  const assignedAssetsCount = (assets || []).filter(
-    a => a.assignedTo === currentUser.name ||
-         a.assignedUser === currentUser.name ||
-         (a.assignedEmail && a.assignedEmail.toLowerCase() === (currentUser.email || '').toLowerCase())
-  ).length;
+  // Calculate filtered counts & items for Employee
+  const empName = (currentUser.name || '').toLowerCase().trim();
+  const empEmail = (currentUser.email || '').toLowerCase().trim();
+  const empDept = (currentUser.department || '').toLowerCase().trim();
+
+  const assignedAssetsList = (assets || []).filter(
+    a => (empName && a.assignedTo && a.assignedTo.toLowerCase().includes(empName)) ||
+         (empName && a.assignedUser && a.assignedUser.toLowerCase().includes(empName)) ||
+         (empEmail && a.assignedEmail && a.assignedEmail.toLowerCase() === empEmail)
+  );
+  const assignedAssetsCount = assignedAssetsList.length;
+
+  const assignedSubsList = (subscriptions || []).filter(
+    s => (empEmail && s.assignedEmail && s.assignedEmail.toLowerCase() === empEmail) ||
+         (empName && s.assignedEmployee && s.assignedEmployee.toLowerCase().includes(empName)) ||
+         (empName && s.owner && s.owner.toLowerCase().includes(empName)) ||
+         (empDept && s.department && s.department.toLowerCase() === empDept) ||
+         (s.department && ['all', 'campus-wide', 'engineering'].includes(s.department.toLowerCase()))
+  );
+  const assignedSubsCount = assignedSubsList.length;
 
   const myTicketsCount = (tickets || []).filter(
-    t => t.reporterName === currentUser.name ||
-         (t.reporterEmail && t.reporterEmail.toLowerCase() === (currentUser.email || '').toLowerCase())
+    t => (empName && t.reporterName && t.reporterName.toLowerCase().includes(empName)) ||
+         (empEmail && t.reporterEmail && t.reporterEmail.toLowerCase() === empEmail)
   ).length;
 
   const pendingAdminApprovals = (tickets || []).filter(
@@ -350,11 +364,65 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
                 </div>
 
                 <div className="flex items-center space-x-2 text-xs text-[#718078]">
+                  <Crown className="w-3.5 h-3.5 text-[#315F50]" />
+                  <span>Software Subscriptions:</span>
+                  <span className="font-bold text-[#172D27]">{assignedSubsCount} license{assignedSubsCount !== 1 ? 's' : ''}</span>
+                </div>
+
+                <div className="flex items-center space-x-2 text-xs text-[#718078]">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Account Status:</span>
                   <span className="font-bold text-emerald-700">Verified &amp; Active</span>
                 </div>
               </div>
+
+              {/* Assigned Hardware Summary List (Visible when items allocated) */}
+              {isEmployee && (
+                <div className="space-y-2 pt-2 border-t border-[#E5EAE5]">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#315F50] block">
+                    My Allocated Equipment ({assignedAssetsCount})
+                  </span>
+                  {assignedAssetsCount === 0 ? (
+                    <p className="text-[11px] text-[#718078] italic">No physical devices assigned yet.</p>
+                  ) : (
+                    <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
+                      {assignedAssetsList.map(a => (
+                        <div key={a.id} className="p-2 rounded-xl bg-[#F7F9F6] border border-[#E5EAE5] flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-[#172D27] leading-tight">{a.name}</p>
+                            <p className="text-[10px] text-[#718078] font-mono">{a.id} &bull; {a.labRoom || a.location || 'ISE Lab'}</p>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-[#E6EFE8] text-[#315F50]">
+                            {a.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Software Subscriptions List */}
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#315F50] block pt-1">
+                    My Software Subscriptions ({assignedSubsCount})
+                  </span>
+                  {assignedSubsCount === 0 ? (
+                    <p className="text-[11px] text-[#718078] italic">No software licenses allocated yet.</p>
+                  ) : (
+                    <div className="max-h-24 overflow-y-auto space-y-1.5 pr-1">
+                      {assignedSubsList.map(s => (
+                        <div key={s.id} className="p-2 rounded-xl bg-[#F7F9F6] border border-[#E5EAE5] flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-[#172D27] leading-tight">{s.name || s.softwareName}</p>
+                            <p className="text-[10px] text-[#718078]">{s.seatType || 'Campus License'} &bull; {s.vendor || 'Institutional'}</p>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Active
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="pt-3 border-t border-[#E5EAE5] flex justify-end">
                 <button

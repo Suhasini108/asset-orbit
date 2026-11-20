@@ -101,28 +101,31 @@ export default function DashboardPage({
 
   // Employee Assigned Assets Isolation
   const employeeAssignedAssets = useMemo(() => {
-    const empName = (currentUser?.name || '').toLowerCase();
-    const empEmail = (currentUser?.email || '').toLowerCase();
+    const empName = (currentUser?.name || '').toLowerCase().trim();
+    const empEmail = (currentUser?.email || '').toLowerCase().trim();
+    if (!empName && !empEmail) return [];
     return (assets || []).filter(a =>
-      (a.assignedTo && a.assignedTo.toLowerCase().includes(empName)) ||
-      (a.assignedUser && a.assignedUser.toLowerCase().includes(empName)) ||
-      (a.assignedEmail && a.assignedEmail.toLowerCase() === empEmail)
+      (empName && a.assignedTo && a.assignedTo.toLowerCase().includes(empName)) ||
+      (empName && a.assignedUser && a.assignedUser.toLowerCase().includes(empName)) ||
+      (empEmail && a.assignedEmail && a.assignedEmail.toLowerCase() === empEmail)
     );
   }, [assets, currentUser]);
 
   // Employee Departmental Subscriptions Isolation
   const employeeSubscriptions = useMemo(() => {
-    const empDept = (currentUser?.department || '').toLowerCase();
-    const empName = (currentUser?.name || '').toLowerCase();
-    const empEmail = (currentUser?.email || '').toLowerCase();
+    const empDept = (currentUser?.department || '').toLowerCase().trim();
+    const empName = (currentUser?.name || '').toLowerCase().trim();
+    const empEmail = (currentUser?.email || '').toLowerCase().trim();
     return (subscriptions || []).filter(s => {
-      const sDept = (s.department || '').toLowerCase();
-      const sOwner = (s.owner || '').toLowerCase();
-      const sAssigned = (s.assignedEmployee || '').toLowerCase();
-      const sAssignedEmail = (s.assignedEmail || '').toLowerCase();
-      return sDept === empDept || sDept === 'all' || sDept === 'engineering' ||
-             sOwner.includes(empName) || sAssigned.includes(empName) ||
-             sAssignedEmail === empEmail;
+      const sDept = (s.department || '').toLowerCase().trim();
+      const sOwner = (s.owner || '').toLowerCase().trim();
+      const sAssigned = (s.assignedEmployee || '').toLowerCase().trim();
+      const sAssignedEmail = (s.assignedEmail || '').toLowerCase().trim();
+      return (empEmail && sAssignedEmail === empEmail) ||
+             (empName && sAssigned.includes(empName)) ||
+             (empName && sOwner.includes(empName)) ||
+             (empDept && sDept === empDept) ||
+             sDept === 'all' || sDept === 'campus-wide' || sDept === 'engineering';
     });
   }, [subscriptions, currentUser]);
 
@@ -508,6 +511,75 @@ export default function DashboardPage({
                       <Wrench className="w-3 h-3" />
                       <span>Report Issue</span>
                     </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 3.5. SECTION: MY ASSIGNED SOFTWARE LICENSES & CLOUD SUBSCRIPTIONS */}
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E5EAE5] shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-extrabold text-[#172D27] flex items-center space-x-2">
+                <Crown className="w-4 h-4 text-[#315F50]" />
+                <span>My Authorized Software Licenses &amp; Subscriptions ({employeeSubscriptions.length})</span>
+              </h3>
+              <p className="text-xs text-[#718078] mt-0.5">
+                Active software tools, cloud computing licenses, and campus-wide entitlements provisioned to your profile.
+              </p>
+            </div>
+            <Link
+              to="/subscriptions"
+              className="text-xs font-bold text-[#315F50] hover:underline flex items-center space-x-1"
+            >
+              <span>View All Subscriptions</span>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+
+          {employeeSubscriptions.length === 0 ? (
+            <div className="p-8 rounded-2xl bg-[#F7F9F6] border border-[#E5EAE5] text-center space-y-2">
+              <Crown className="w-8 h-8 text-[#A9C7B5] mx-auto" />
+              <p className="text-xs font-bold text-[#172D27]">No Dedicated Subscriptions Assigned Yet</p>
+              <p className="text-[11px] text-[#718078] max-w-sm mx-auto">
+                Admin or IT Manager can assign departmental software licenses (like MATLAB Campuswide Suite) to your account.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {employeeSubscriptions.map((sub) => (
+                <div
+                  key={sub.id}
+                  onClick={() => navigate('/subscriptions')}
+                  className="p-4 rounded-2xl bg-[#F7F9F6] border border-[#E5EAE5] hover:border-[#315F50] transition-all cursor-pointer space-y-3 group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md bg-[#E6EFE8] text-[#315F50] border border-[#A9C7B5]">
+                      {sub.seatType || 'Authorized License'}
+                    </span>
+                    <span className="text-[11px] font-bold text-emerald-700 flex items-center space-x-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{sub.status || 'Active'}</span>
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-black text-[#172D27] group-hover:text-[#315F50] transition-colors">
+                      {sub.name || sub.softwareName}
+                    </h4>
+                    <p className="text-[10px] text-[#718078] mt-0.5">
+                      Vendor: <strong className="text-[#172D27]">{sub.vendor || 'Campus License'}</strong> &bull; Dept: {sub.department || 'ISE'}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#E5EAE5] flex items-center justify-between text-[10px] text-[#718078]">
+                    <span>Renewal: <strong className="text-[#172D27]">{sub.renewalDate || '2026-12-31'}</strong></span>
+                    <span className="text-[#315F50] font-bold group-hover:underline flex items-center space-x-0.5">
+                      <span>Details</span>
+                      <ArrowRight className="w-2.5 h-2.5" />
+                    </span>
                   </div>
                 </div>
               ))}

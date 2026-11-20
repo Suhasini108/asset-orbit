@@ -151,6 +151,53 @@ export function AppProvider({ children }) {
     ];
   });
 
+  // Real-time Cross-Window & Cross-Tab Sync helper
+  const broadcastSync = (type, payload) => {
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const channel = new BroadcastChannel('assetorbit_app_sync');
+        channel.postMessage({ type, payload });
+        channel.close();
+      }
+    } catch (e) {}
+  };
+
+  // Cross-Tab & Cross-Window Listener for immediate side-by-side reflection
+  useEffect(() => {
+    let channel = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        channel = new BroadcastChannel('assetorbit_app_sync');
+        channel.onmessage = (event) => {
+          const { type, payload } = event.data || {};
+          if (type === 'SYNC_ASSETS' && Array.isArray(payload)) {
+            setAssets(payload);
+          } else if (type === 'SYNC_SUBSCRIPTIONS' && Array.isArray(payload)) {
+            setSubscriptions(payload);
+          } else if (type === 'SYNC_TICKETS' && Array.isArray(payload)) {
+            setTickets(payload);
+          }
+        };
+      }
+    } catch (e) {}
+
+    const handleStorage = (e) => {
+      if (e.key === 'ao_assets' && e.newValue) {
+        try { setAssets(JSON.parse(e.newValue)); } catch (err) {}
+      } else if (e.key === 'ao_subscriptions' && e.newValue) {
+        try { setSubscriptions(JSON.parse(e.newValue)); } catch (err) {}
+      } else if (e.key === 'ao_tickets' && e.newValue) {
+        try { setTickets(JSON.parse(e.newValue)); } catch (err) {}
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
   // --- PERSISTENCE SYNCS ---
   useEffect(() => { localStorage.setItem('ao_categories', JSON.stringify(categories)); }, [categories]);
   useEffect(() => { localStorage.setItem('ao_vendors', JSON.stringify(vendors)); }, [vendors]);
@@ -259,21 +306,25 @@ export function AppProvider({ children }) {
 
   const updateAsset = (id, updates, userName = 'Admin') => {
     let targetAsset = null;
-    setAssets(prev => prev.map(a => {
-      if (a.id === id) {
-        targetAsset = { ...a, ...updates };
-        const updatedTimeline = a.timeline || [];
-        if (updates.status && updates.status !== a.status) {
-          updatedTimeline.push({
-            date: new Date().toISOString().slice(0, 10),
-            event: `Status Changed to ${updates.status}`,
-            notes: updates.statusChangeNote || `Status updated by ${userName}`
-          });
+    setAssets(prev => {
+      const nextAssets = prev.map(a => {
+        if (a.id === id) {
+          targetAsset = { ...a, ...updates };
+          const updatedTimeline = a.timeline || [];
+          if (updates.status && updates.status !== a.status) {
+            updatedTimeline.push({
+              date: new Date().toISOString().slice(0, 10),
+              event: `Status Changed to ${updates.status}`,
+              notes: updates.statusChangeNote || `Status updated by ${userName}`
+            });
+          }
+          return { ...a, ...updates, timeline: updatedTimeline };
         }
-        return { ...a, ...updates, timeline: updatedTimeline };
-      }
-      return a;
-    }));
+        return a;
+      });
+      broadcastSync('SYNC_ASSETS', nextAssets);
+      return nextAssets;
+    });
     logActivity(userName, 'Updated Asset', id);
 
     // If marked as InRepair or Faulty, automatically dispatch real email alert to Admin & IT Manager
@@ -407,33 +458,37 @@ export function AppProvider({ children }) {
   };
 
   const updateSubscription = (id, updates, userName = 'Admin') => {
-    setSubscriptions(prev => prev.map(sub => {
-      if (sub.id === id) {
-        // Detect price hike!
-        if (updates.cost && Number(updates.cost) > Number(sub.cost)) {
-          const hikePercent = (((Number(updates.cost) - Number(sub.cost)) / Number(sub.cost)) * 100).toFixed(1);
-          const history = sub.priceHikeHistory || [];
-          history.push({
-            year: new Date().getFullYear().toString(),
-            cost: Number(updates.cost),
-            note: `Renewal increase of ${hikePercent}% detected by Price Sentinel`
-          });
-          updates.priceHikeHistory = history;
-          updates.previousCost = sub.cost;
+    setSubscriptions(prev => {
+      const nextSubs = prev.map(sub => {
+        if (sub.id === id) {
+          // Detect price hike!
+          if (updates.cost && Number(updates.cost) > Number(sub.cost)) {
+            const hikePercent = (((Number(updates.cost) - Number(sub.cost)) / Number(sub.cost)) * 100).toFixed(1);
+            const history = sub.priceHikeHistory || [];
+            history.push({
+              year: new Date().getFullYear().toString(),
+              cost: Number(updates.cost),
+              note: `Renewal increase of ${hikePercent}% detected by Price Sentinel`
+            });
+            updates.priceHikeHistory = history;
+            updates.previousCost = sub.cost;
 
-          // Trigger high-priority alert
-          addNotification({
-            title: `Price Hike Detected: ${sub.name}`,
-            description: `Renewal price increased by ${hikePercent}% from $${sub.cost} to $${updates.cost}/year.`,
-            type: 'price_hike',
-            category: 'Subscription',
-            link: '/subscriptions'
-          });
+            // Trigger high-priority alert
+            addNotification({
+              title: `Price Hike Detected: ${sub.name}`,
+              description: `Renewal price increased by ${hikePercent}% from $${sub.cost} to $${updates.cost}/year.`,
+              type: 'price_hike',
+              category: 'Subscription',
+              link: '/subscriptions'
+            });
+          }
+          return { ...sub, ...updates };
         }
-        return { ...sub, ...updates };
-      }
-      return sub;
-    }));
+        return sub;
+      });
+      broadcastSync('SYNC_SUBSCRIPTIONS', nextSubs);
+      return nextSubs;
+    });
     logActivity(userName, 'Updated Subscription', id);
   };
 

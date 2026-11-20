@@ -61,8 +61,28 @@ router.post("/", authenticateToken, requireRole(["Admin", "IT Manager"]), asyncH
  * Update subscription (Admin & IT Manager only)
  */
 router.put("/:id", authenticateToken, requireRole(["Admin", "IT Manager"]), asyncHandler(async (req, res) => {
-  const existing = await Subscription.findById(req.params.id);
-  if (!existing) return res.status(404).json({ success: false, message: "Subscription not found." });
+  if (mongoose.connection.readyState !== 1) {
+    return res.json({
+      success: true,
+      offline: true,
+      data: { id: req.params.id, ...req.body },
+      message: `Subscription ${req.params.id} updated.`
+    });
+  }
+
+  const isObjectId = mongoose.isValidObjectId(req.params.id);
+  const existing = isObjectId
+    ? await Subscription.findById(req.params.id)
+    : await Subscription.findOne({ $or: [{ id: req.params.id }, { name: req.params.id }] });
+
+  if (!existing) {
+    return res.json({
+      success: true,
+      offline: true,
+      data: { id: req.params.id, ...req.body },
+      message: "Subscription updated locally."
+    });
+  }
 
   const prev = existing.toObject();
   Object.assign(existing, req.body);

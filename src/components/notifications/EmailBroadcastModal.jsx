@@ -254,10 +254,10 @@ Academic Block & Lab Infrastructure Support`;
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-[#E5EAE5] flex flex-col max-h-[88vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm overflow-y-auto p-3 sm:p-5 flex justify-center items-start">
+      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-[#E5EAE5] flex flex-col max-h-[calc(100vh-2.5rem)] min-h-0 my-auto animate-in fade-in zoom-in-95 duration-200">
         
-        {/* Header */}
+        {/* Header (Permanently pinned at top, never cut off) */}
         <div className="px-6 py-4 border-b border-[#E5EAE5] flex items-center justify-between bg-[#F7F8F5] flex-shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-[#315F50] text-white flex items-center justify-center shadow-sm">
@@ -380,7 +380,7 @@ Academic Block & Lab Infrastructure Support`;
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSend} className="p-6 space-y-4 overflow-y-auto flex-1">
+          <form onSubmit={handleSend} className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
             
             {/* Quick Template Picker */}
             <div>

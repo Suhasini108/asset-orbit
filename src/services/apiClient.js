@@ -34,10 +34,15 @@ export async function apiRequest(endpoint, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // 2.5-second client-side timeout to prevent any async freeze or network lock
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2500);
+
   try {
     const response = await fetch(url, {
       ...options,
-      headers
+      headers,
+      signal: controller.signal
     });
 
     const data = await response.json().catch(() => ({}));
@@ -48,13 +53,15 @@ export async function apiRequest(endpoint, options = {}) {
       raw: data
     };
   } catch (error) {
-    console.warn(`[AssetOrbit API] Request failed for ${endpoint}:`, error.message);
+    console.warn(`[AssetOrbit API] Request notice for ${endpoint}:`, error.message);
     return {
       ok: false,
       status: 0,
       offline: true,
       error: error.message
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

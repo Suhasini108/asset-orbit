@@ -472,6 +472,16 @@ function createJwtToken(user) {
   return `${headStr}.${payStr}.${signature}`;
 }
 
+export const getCategoryForDept = (dept) => {
+  if (!dept) return 'Engineering';
+  const d = dept.toLowerCase();
+  if (['cse', 'ise', 'ai&ml', 'aiml', 'ece', 'eee', 'mechanical', 'civil'].some(k => d.includes(k))) return 'Engineering';
+  if (['it center', 'networking', 'data center', 'audio visual', 'security', 'operations'].some(k => d.includes(k))) return 'Operations & IT';
+  if (['principal', 'dean', 'registrar', 'exam', 'accounts', 'finance', 'admin'].some(k => d.includes(k))) return 'Administration';
+  if (['physics', 'chemistry', 'math', 'basic sciences', 'science'].some(k => d.includes(k))) return 'Basic Sciences';
+  return 'Engineering';
+};
+
 export function AuthProvider({ children }) {
   // Registered employees stored in localStorage with full category & sub-branch coverage
   const [registeredEmployees, setRegisteredEmployees] = useState(() => {
@@ -482,15 +492,65 @@ export function AuthProvider({ children }) {
         list = JSON.parse(saved);
       } catch (e) {}
     }
+    // Normalize and auto-repair category and subBranch
+    list = (list || []).map(emp => ({
+      ...emp,
+      category: emp.category || getCategoryForDept(emp.department || emp.subBranch),
+      subBranch: emp.subBranch || emp.department || 'CSE',
+      department: emp.department || emp.subBranch || 'CSE'
+    }));
+
     // Merge DEFAULT_EMPLOYEES so all engineering branches, ops, admin, and science staff are available
-    const existingEmails = new Set((list || []).map(e => (e.email || '').toLowerCase()));
+    const existingEmails = new Set(list.map(e => (e.email || '').toLowerCase()));
     const missing = DEFAULT_EMPLOYEES.filter(e => !existingEmails.has((e.email || '').toLowerCase()));
-    return [...(list || []), ...missing];
+    return [...list, ...missing];
   });
 
   useEffect(() => {
     localStorage.setItem('ao_registered_employees', JSON.stringify(registeredEmployees));
   }, [registeredEmployees]);
+
+  // Real-time synchronization across browser tabs and windows
+  useEffect(() => {
+    let channel = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        channel = new BroadcastChannel('assetorbit_auth_channel');
+        channel.onmessage = (event) => {
+          if (event.data?.type === 'EMPLOYEES_UPDATED' && Array.isArray(event.data.payload)) {
+            setRegisteredEmployees(event.data.payload);
+          }
+        };
+      }
+    } catch (e) {}
+
+    const handleStorage = (e) => {
+      if (e.key === 'ao_registered_employees' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setRegisteredEmployees(parsed);
+          }
+        } catch (err) {}
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  const broadcastEmployees = (updatedList) => {
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const channel = new BroadcastChannel('assetorbit_auth_channel');
+        channel.postMessage({ type: 'EMPLOYEES_UPDATED', payload: updatedList });
+        channel.close();
+      }
+    } catch (e) {}
+  };
 
   // Starts as null so Login Page ALWAYS appears first when the app is opened
   const [currentUser, setCurrentUser] = useState(() => {
@@ -532,6 +592,8 @@ export function AuthProvider({ children }) {
   const registerEmployee = ({ name, email, department, password }) => {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanName = (name || '').trim();
+    const dept = (department || 'CSE').trim();
+    const cat = getCategoryForDept(dept);
 
     if (!cleanEmail || !password || !cleanName) {
       return { success: false, error: 'Name, email, and password are required.' };
@@ -547,18 +609,22 @@ export function AuthProvider({ children }) {
       name: cleanName,
       email: cleanEmail,
       password,
-      department: department || 'CSE',
+      department: dept,
+      category: cat,
+      subBranch: dept,
       role: 'Employee',
       title: 'Faculty / Staff Member',
       avatar: cleanName.charAt(0).toUpperCase() || 'E',
       permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
     };
 
-    setRegisteredEmployees(prev => [newEmp, ...prev]);
+    const updated = [newEmp, ...registeredEmployees];
+    setRegisteredEmployees(updated);
+    broadcastEmployees(updated);
     setCurrentUser(newEmp);
 
     // Sync with backend API to obtain server-signed JWT token
-    api.post('/auth/register', { name: cleanName, email: cleanEmail, department: department || 'CSE', password })
+    api.post('/auth/register', { name: cleanName, email: cleanEmail, department: dept, password })
       .then(res => {
         if (res.ok && res.raw?.token) {
           sessionStorage.setItem('assetorbit_session_token', res.raw.token);
@@ -684,6 +750,24 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('assetorbit_token');
   };
 
+  const switchRole = (targetRole, employeeEmail = null) => {
+    if (targetRole === 'Admin') {
+      setCurrentUser(PRESET_USERS['Admin']);
+    } else if (targetRole === 'IT Manager' || targetRole === 'ITManager or HOD') {
+      setCurrentUser(PRESET_USERS['IT Manager']);
+    } else if (targetRole === 'Employee') {
+      if (employeeEmail) {
+        const found = registeredEmployees.find(e => e.email.toLowerCase() === employeeEmail.toLowerCase());
+        if (found) {
+          setCurrentUser(found);
+          return;
+        }
+      }
+      const firstEmp = registeredEmployees[0] || PRESET_USERS['Employee'];
+      setCurrentUser(firstEmp);
+    }
+  };
+
   // RBAC Permission checks
   const hasPermission = (perm) => {
     if (!currentUser) return false;
@@ -706,6 +790,7 @@ export function AuthProvider({ children }) {
       token,
       login,
       logout,
+      switchRole,
       registerEmployee,
       registeredEmployees,
       hasPermission,

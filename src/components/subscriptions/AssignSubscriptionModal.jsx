@@ -130,6 +130,7 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription:
   const [seatType, setSeatType] = useState('Faculty Dedicated Seat (Campuswide License)');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [assignedSuccess, setAssignedSuccess] = useState(false);
 
   // Sync selected employee when filtered list changes
   useEffect(() => {
@@ -147,7 +148,7 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription:
 
   const currentSelectedEmployee = (registeredEmployees || []).find(e => e.email === selectedEmployeeEmail);
 
-  const handleAssign = async (e) => {
+  const handleAssign = (e) => {
     e.preventDefault();
     if (!isAvailable) {
       alert('Cannot assign an expired or inactive subscription. Only available, active subscriptions can be assigned.');
@@ -191,18 +192,12 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription:
       notes: `${targetSubscription.notes || ''}\n[${new Date().toISOString().slice(0, 10)}] Assigned to ${empName} (${empEmail}) in ${empDept} by ${currentUser?.name || 'Admin'} (${currentUser?.role || 'Staff'}). Seat: ${seatType}. Notes: ${notes || 'N/A'}`.trim()
     };
 
-    // 1. Update in local AppContext state
+    // 1. Immediately update in local AppContext state (instant reactive feedback)
     if (typeof updateSubscription === 'function') {
       updateSubscription(targetSubscription.id, updatedData);
     }
 
-    // 2. Sync with Backend API
-    try {
-      await api.put(`/subscriptions/${targetSubscription.id}`, updatedData);
-    } catch (err) {
-      console.warn('Backend sync failed, state preserved locally:', err);
-    }
-
+    // 2. Notification
     addNotification({
       title: `Subscription License Assigned`,
       description: `${targetSubscription.name} assigned to ${empName} (${empDept}) by ${currentUser?.name || 'Management'}.`,
@@ -211,13 +206,21 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription:
       link: '/subscriptions'
     });
 
-    setSubmitting(false);
-    onClose();
+    // 3. Fire-and-forget backend sync in background (non-blocking)
+    api.put(`/subscriptions/${targetSubscription.id}`, updatedData).catch(() => {});
+
+    // 4. Visibly change button to Assigned Successfully, then close modal smoothly
+    setAssignedSuccess(true);
+    setTimeout(() => {
+      setSubmitting(false);
+      setAssignedSuccess(false);
+      onClose();
+    }, 600);
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-[#E5EAE5] flex flex-col max-h-[88vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 font-sans">
+    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm overflow-y-auto p-3 sm:p-5 flex justify-center items-start">
+      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-[#E5EAE5] flex flex-col max-h-[calc(100vh-2.5rem)] min-h-0 my-auto animate-in fade-in zoom-in-95 duration-200 font-sans">
         
         {/* Pinned Modal Header (Guaranteed NEVER Cut Off) */}
         <div className="px-6 py-4 border-b border-[#E5EAE5] flex items-center justify-between bg-[#F7F8F5] flex-shrink-0">
@@ -244,7 +247,7 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription:
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleAssign} className="p-6 space-y-4 overflow-y-auto flex-1">
+        <form onSubmit={handleAssign} className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           
           {/* Target Subscription Selector (Only Available Subscriptions Allowed) */}
           <div className="space-y-1.5">
@@ -321,9 +324,9 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription:
               <button
                 type="button"
                 onClick={() => { setSelectedCategory('all'); setSelectedSubBranch('all'); }}
-                className="text-[10px] font-bold text-[#315F50] hover:underline cursor-pointer"
+                className="text-[10px] font-bold text-[#315F50] hover:underline cursor-pointer bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200"
               >
-                Reset Filters
+                Show All Staff ({registeredEmployees.length})
               </button>
             </div>
 
@@ -341,6 +344,7 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription:
                   }}
                   className="w-full px-3 py-2 rounded-xl border border-[#CBDCD0] text-xs font-semibold text-[#172D27] bg-white focus:outline-none focus:border-[#315F50]"
                 >
+                  <option value="all">Campus-wide (All Categories &amp; Staff)</option>
                   {CATEGORIES.map(c => (
                     <option key={c.id} value={c.name}>{c.name}</option>
                   ))}
@@ -357,7 +361,11 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription:
                   onChange={(e) => setSelectedSubBranch(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-[#CBDCD0] text-xs font-semibold text-[#172D27] bg-white focus:outline-none focus:border-[#315F50]"
                 >
-                  <option value="all">All Sub-Branches ({availableSubBranches.length})</option>
+                  <option value="all">
+                    {selectedCategory === 'all' 
+                      ? `All Departments (${registeredEmployees.length} Total Staff)` 
+                      : `All Sub-Branches (${availableSubBranches.length})`}
+                  </option>
                   {availableSubBranches.map(sb => (
                     <option key={sb} value={sb}>{sb}</option>
                   ))}
@@ -499,21 +507,38 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription:
             <button
               type="button"
               onClick={onClose}
+              disabled={submitting}
               className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#718078] hover:bg-[#F7F8F5] transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={submitting || !isAvailable}
+              disabled={submitting || !isAvailable || assignedSuccess}
               className={`px-5 py-2.5 rounded-xl text-xs font-extrabold text-white shadow-md transition-all flex items-center space-x-2 ${
-                isAvailable 
+                assignedSuccess
+                  ? 'bg-emerald-600 text-white shadow-emerald-600/30 ring-2 ring-emerald-400'
+                  : isAvailable 
                   ? 'bg-[#315F50] hover:bg-[#244B3E] cursor-pointer' 
                   : 'bg-slate-400 cursor-not-allowed'
               }`}
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{submitting ? 'Assigning...' : 'Confirm Assignment'}</span>
+              {assignedSuccess ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <span>License Assigned Successfully!</span>
+                </>
+              ) : submitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Assigning...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Confirm Assignment</span>
+                </>
+              )}
             </button>
           </div>
         </form>

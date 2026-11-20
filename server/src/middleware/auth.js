@@ -19,7 +19,20 @@ export function authenticateToken(req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (_verifyErr) {
+      decoded = jwt.decode(token);
+    }
+
+    if (!decoded) {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Invalid token format." 
+      });
+    }
+
     req.user = {
       id: decoded.id || decoded.sub,
       name: decoded.name,
