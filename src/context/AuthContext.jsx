@@ -64,27 +64,383 @@ export const PRESET_USERS = {
   }
 };
 
-const DEFAULT_EMPLOYEES = [
+export const DEFAULT_EMPLOYEES = [
+  // 1. Engineering Category
+  // CSE Sub-Branch
   {
-    id: 'USR-EMP-001',
+    id: 'USR-EMP-CSE-01',
     name: 'Vikram Naik',
     email: 'employee@assetorbit.edu',
     password: 'Employee@123',
     department: 'CSE',
+    category: 'Engineering',
+    subBranch: 'CSE',
     role: 'Employee',
-    title: 'Faculty / Staff Member',
+    title: 'Assistant Professor (Systems & Cloud)',
     avatar: 'V',
     permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
   },
   {
-    id: 'USR-EMP-002',
+    id: 'USR-EMP-CSE-02',
+    name: 'Anita Sharma',
+    email: 'anita.sharma@college.edu',
+    password: 'Employee@123',
+    department: 'CSE',
+    category: 'Engineering',
+    subBranch: 'CSE',
+    role: 'Employee',
+    title: 'Senior Lab Instructor (Algorithms Lab)',
+    avatar: 'A',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  // ISE Sub-Branch
+  {
+    id: 'USR-EMP-ISE-01',
     name: 'Sneha Rao',
     email: 'sneha.rao@college.edu',
     password: 'Employee@123',
     department: 'ISE',
+    category: 'Engineering',
+    subBranch: 'ISE',
     role: 'Employee',
-    title: 'Assistant Professor',
+    title: 'Assistant Professor (Data Engineering)',
     avatar: 'S',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-ISE-02',
+    name: 'Praveen Kumar',
+    email: 'praveen.kumar@college.edu',
+    password: 'Employee@123',
+    department: 'ISE',
+    category: 'Engineering',
+    subBranch: 'ISE',
+    role: 'Employee',
+    title: 'Senior Lab Instructor (Network Security Lab)',
+    avatar: 'P',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  // AI&ML Sub-Branch
+  {
+    id: 'USR-EMP-AIML-01',
+    name: 'Dr. Rajesh Hegde',
+    email: 'rajesh.hegde@college.edu',
+    password: 'Employee@123',
+    department: 'AI&ML',
+    category: 'Engineering',
+    subBranch: 'AI&ML',
+    role: 'Employee',
+    title: 'Professor & AI Center Lead',
+    avatar: 'R',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-AIML-02',
+    name: 'Kavya Murthy',
+    email: 'kavya.murthy@college.edu',
+    password: 'Employee@123',
+    department: 'AI&ML',
+    category: 'Engineering',
+    subBranch: 'AI&ML',
+    role: 'Employee',
+    title: 'Project Associate (Deep Learning)',
+    avatar: 'K',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  // ECE Sub-Branch
+  {
+    id: 'USR-EMP-ECE-01',
+    name: 'Prof. Sunita Kulkarni',
+    email: 'sunita.kulkarni@college.edu',
+    password: 'Employee@123',
+    department: 'ECE',
+    category: 'Engineering',
+    subBranch: 'ECE',
+    role: 'Employee',
+    title: 'Associate Professor (VLSI & Embedded Systems)',
+    avatar: 'S',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-ECE-02',
+    name: 'Ramesh Babu',
+    email: 'ramesh.babu@college.edu',
+    password: 'Employee@123',
+    department: 'ECE',
+    category: 'Engineering',
+    subBranch: 'ECE',
+    role: 'Employee',
+    title: 'Hardware Lab Specialist (DSP & Microcontroller Lab)',
+    avatar: 'R',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  // EEE Sub-Branch
+  {
+    id: 'USR-EMP-EEE-01',
+    name: 'Dr. Suresh Joshi',
+    email: 'suresh.joshi@college.edu',
+    password: 'Employee@123',
+    department: 'EEE',
+    category: 'Engineering',
+    subBranch: 'EEE',
+    role: 'Employee',
+    title: 'Professor (Power Electronics & Grid Systems)',
+    avatar: 'S',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-EEE-02',
+    name: 'Priya Deshmukh',
+    email: 'priya.deshmukh@college.edu',
+    password: 'Employee@123',
+    department: 'EEE',
+    category: 'Engineering',
+    subBranch: 'EEE',
+    role: 'Employee',
+    title: 'Lab Assistant (Electrical Machines & Simulation Lab)',
+    avatar: 'P',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  // Mechanical Sub-Branch
+  {
+    id: 'USR-EMP-MECH-01',
+    name: 'Dr. Anand Patil',
+    email: 'anand.patil@college.edu',
+    password: 'Employee@123',
+    department: 'Mechanical',
+    category: 'Engineering',
+    subBranch: 'Mechanical',
+    role: 'Employee',
+    title: 'HOD & Professor (Thermal Systems & Robotics)',
+    avatar: 'A',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-MECH-02',
+    name: 'Manjunath G',
+    email: 'manjunath.g@college.edu',
+    password: 'Employee@123',
+    department: 'Mechanical',
+    category: 'Engineering',
+    subBranch: 'Mechanical',
+    role: 'Employee',
+    title: 'CAD/CAM & Mechatronics Lab Instructor',
+    avatar: 'M',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  // Civil Sub-Branch
+  {
+    id: 'USR-EMP-CIVIL-01',
+    name: 'Prof. Deepa Nair',
+    email: 'deepa.nair@college.edu',
+    password: 'Employee@123',
+    department: 'Civil',
+    category: 'Engineering',
+    subBranch: 'Civil',
+    role: 'Employee',
+    title: 'Assistant Professor (Structural Engineering)',
+    avatar: 'D',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-CIVIL-02',
+    name: 'Chetan Gowda',
+    email: 'chetan.gowda@college.edu',
+    password: 'Employee@123',
+    department: 'Civil',
+    category: 'Engineering',
+    subBranch: 'Civil',
+    role: 'Employee',
+    title: 'Surveying & GIS Lab Specialist',
+    avatar: 'C',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+
+  // 2. Operations & IT Category
+  {
+    id: 'USR-EMP-OPS-01',
+    name: 'Naveen Teja',
+    email: 'naveen.teja@college.edu',
+    password: 'Employee@123',
+    department: 'Operations & IT',
+    category: 'Operations & IT',
+    subBranch: 'IT Center',
+    role: 'Employee',
+    title: 'Senior Systems Administrator',
+    avatar: 'N',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-OPS-02',
+    name: 'Rohan Shetty',
+    email: 'rohan.shetty@college.edu',
+    password: 'Employee@123',
+    department: 'Operations & IT',
+    category: 'Operations & IT',
+    subBranch: 'Campus Networking',
+    role: 'Employee',
+    title: 'Network Infrastructure Engineer',
+    avatar: 'R',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-OPS-03',
+    name: 'Divya Prasad',
+    email: 'divya.prasad@college.edu',
+    password: 'Employee@123',
+    department: 'Operations & IT',
+    category: 'Operations & IT',
+    subBranch: 'Data Center',
+    role: 'Employee',
+    title: 'Cloud & Virtualization Specialist',
+    avatar: 'D',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-OPS-04',
+    name: 'Mahesh K',
+    email: 'mahesh.k@college.edu',
+    password: 'Employee@123',
+    department: 'Operations & IT',
+    category: 'Operations & IT',
+    subBranch: 'Audio Visual',
+    role: 'Employee',
+    title: 'Multimedia & Smart Classrooms Technician',
+    avatar: 'M',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-OPS-05',
+    name: 'Santosh Kumar',
+    email: 'santosh.k@college.edu',
+    password: 'Employee@123',
+    department: 'Operations & IT',
+    category: 'Operations & IT',
+    subBranch: 'Campus Security',
+    role: 'Employee',
+    title: 'Security Hardware & Access Control Lead',
+    avatar: 'S',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+
+  // 3. Administration Category
+  {
+    id: 'USR-EMP-ADM-01',
+    name: 'Dr. H. Venkatesh',
+    email: 'principal@college.edu',
+    password: 'Employee@123',
+    department: 'Administration',
+    category: 'Administration',
+    subBranch: 'Principal Office',
+    role: 'Employee',
+    title: 'Principal & Head of Institution',
+    avatar: 'H',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-ADM-02',
+    name: 'Savitha M',
+    email: 'savitha.m@college.edu',
+    password: 'Employee@123',
+    department: 'Administration',
+    category: 'Administration',
+    subBranch: 'Principal Office',
+    role: 'Employee',
+    title: 'Executive Administrative Secretary',
+    avatar: 'S',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-ADM-03',
+    name: 'Dr. B. N. Meenakshi',
+    email: 'dean.academic@college.edu',
+    password: 'Employee@123',
+    department: 'Administration',
+    category: 'Administration',
+    subBranch: 'Dean Academic',
+    role: 'Employee',
+    title: 'Dean of Academic Affairs',
+    avatar: 'B',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-ADM-04',
+    name: 'Srikanth Vernekar',
+    email: 'registrar.office@college.edu',
+    password: 'Employee@123',
+    department: 'Administration',
+    category: 'Administration',
+    subBranch: 'Registrar',
+    role: 'Employee',
+    title: 'Assistant Registrar (Admissions & Records)',
+    avatar: 'S',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-ADM-05',
+    name: 'Geetha Pai',
+    email: 'exams@college.edu',
+    password: 'Employee@123',
+    department: 'Administration',
+    category: 'Administration',
+    subBranch: 'Examination Cell',
+    role: 'Employee',
+    title: 'Controller of Examinations Officer',
+    avatar: 'G',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-ADM-06',
+    name: 'Raghavendra Rao',
+    email: 'accounts@college.edu',
+    password: 'Employee@123',
+    department: 'Administration',
+    category: 'Administration',
+    subBranch: 'Accounts & Finance',
+    role: 'Employee',
+    title: 'Senior Finance Officer',
+    avatar: 'R',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+
+  // 4. Basic Sciences Category
+  {
+    id: 'USR-EMP-SCI-01',
+    name: 'Dr. Archana Rao',
+    email: 'archana.physics@college.edu',
+    password: 'Employee@123',
+    department: 'Basic Sciences',
+    category: 'Basic Sciences',
+    subBranch: 'Physics Lab',
+    role: 'Employee',
+    title: 'Associate Professor (Applied Physics & Optics)',
+    avatar: 'A',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-SCI-02',
+    name: 'Dr. Srinivas Murthy',
+    email: 'srinivas.chem@college.edu',
+    password: 'Employee@123',
+    department: 'Basic Sciences',
+    category: 'Basic Sciences',
+    subBranch: 'Chemistry Lab',
+    role: 'Employee',
+    title: 'Faculty & Lab In-Charge (Material Science)',
+    avatar: 'S',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-SCI-03',
+    name: 'Dr. Vandana Bhat',
+    email: 'vandana.math@college.edu',
+    password: 'Employee@123',
+    department: 'Basic Sciences',
+    category: 'Basic Sciences',
+    subBranch: 'Mathematics Research',
+    role: 'Employee',
+    title: 'Research Lead (Computational Mathematics)',
+    avatar: 'V',
     permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
   }
 ];
@@ -117,15 +473,19 @@ function createJwtToken(user) {
 }
 
 export function AuthProvider({ children }) {
-  // Registered employees stored in localStorage
+  // Registered employees stored in localStorage with full category & sub-branch coverage
   const [registeredEmployees, setRegisteredEmployees] = useState(() => {
     const saved = localStorage.getItem('ao_registered_employees');
+    let list = [];
     if (saved) {
       try {
-        return JSON.parse(saved);
+        list = JSON.parse(saved);
       } catch (e) {}
     }
-    return DEFAULT_EMPLOYEES;
+    // Merge DEFAULT_EMPLOYEES so all engineering branches, ops, admin, and science staff are available
+    const existingEmails = new Set((list || []).map(e => (e.email || '').toLowerCase()));
+    const missing = DEFAULT_EMPLOYEES.filter(e => !existingEmails.has((e.email || '').toLowerCase()));
+    return [...(list || []), ...missing];
   });
 
   useEffect(() => {

@@ -34,8 +34,8 @@ export async function seedDemoData() {
         email: "employee@assetorbit.edu",
         password: "Employee@123",
         role: "Employee",
-        department: "Engineering Labs (CSE / ISE)",
-        title: "Faculty Member",
+        department: "CSE",
+        title: "Faculty Member (CSE)",
         permissions: ["tickets:create", "assets:view_assigned", "loaners:request"],
         avatar: "V"
       },
@@ -45,9 +45,89 @@ export async function seedDemoData() {
         password: "Employee@123",
         role: "Employee",
         department: "ISE",
-        title: "Assistant Professor",
+        title: "Assistant Professor (ISE)",
         permissions: ["tickets:create", "assets:view_assigned", "loaners:request"],
         avatar: "S"
+      },
+      {
+        name: "Dr. Rajesh Hegde",
+        email: "rajesh.hegde@college.edu",
+        password: "Employee@123",
+        role: "Employee",
+        department: "AI&ML",
+        title: "Professor & AI Center Lead",
+        permissions: ["tickets:create", "assets:view_assigned", "loaners:request"],
+        avatar: "R"
+      },
+      {
+        name: "Prof. Sunita Kulkarni",
+        email: "sunita.kulkarni@college.edu",
+        password: "Employee@123",
+        role: "Employee",
+        department: "ECE",
+        title: "Associate Professor (ECE)",
+        permissions: ["tickets:create", "assets:view_assigned", "loaners:request"],
+        avatar: "S"
+      },
+      {
+        name: "Dr. Suresh Joshi",
+        email: "suresh.joshi@college.edu",
+        password: "Employee@123",
+        role: "Employee",
+        department: "EEE",
+        title: "Professor (EEE)",
+        permissions: ["tickets:create", "assets:view_assigned", "loaners:request"],
+        avatar: "S"
+      },
+      {
+        name: "Dr. Anand Patil",
+        email: "anand.patil@college.edu",
+        password: "Employee@123",
+        role: "Employee",
+        department: "Mechanical",
+        title: "HOD & Professor (Mechanical)",
+        permissions: ["tickets:create", "assets:view_assigned", "loaners:request"],
+        avatar: "A"
+      },
+      {
+        name: "Prof. Deepa Nair",
+        email: "deepa.nair@college.edu",
+        password: "Employee@123",
+        role: "Employee",
+        department: "Civil",
+        title: "Assistant Professor (Civil)",
+        permissions: ["tickets:create", "assets:view_assigned", "loaners:request"],
+        avatar: "D"
+      },
+      {
+        name: "Naveen Teja",
+        email: "naveen.teja@college.edu",
+        password: "Employee@123",
+        role: "Employee",
+        department: "Operations & IT",
+        title: "Senior Systems Administrator",
+        permissions: ["tickets:create", "assets:view_assigned", "loaners:request"],
+        avatar: "N"
+      },
+      {
+        name: "Dr. H. Venkatesh",
+        email: "principal@college.edu",
+        password: "Employee@123",
+        role: "Employee",
+        department: "Administration",
+        title: "Principal & Head of Institution",
+        permissions: ["tickets:create", "assets:view_assigned", "loaners:request"],
+        avatar: "H"
+      },
+      {
+        name: "Dr. Archana Rao",
+        email: "archana.physics@college.edu",
+        password: "Employee@123",
+        role: "Employee",
+        department: "Basic Sciences",
+        title: "Associate Professor (Physics)",
+        permissions: ["tickets:create", "assets:view_assigned", "loaners:request"],
+        avatar: "A"
       }
     ]);
   }

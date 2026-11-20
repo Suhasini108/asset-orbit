@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
+import HealthSupportModal from '../common/HealthSupportModal';
 
 export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }) {
   const { currentUser, logout } = useAuth();
@@ -29,6 +30,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
   const location = useLocation();
 
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [healthSupportOpen, setHealthSupportOpen] = useState(false);
 
   // Close mobile drawer automatically when navigating to any page
   useEffect(() => {
@@ -191,7 +193,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
           <button
             type="button"
             onClick={() => {
-              alert('Need assistance? Institutional IT Helpdesk is available at Room 301, Academic Block.\nPhone: Ext. 4022\nEmail: itdesk@assetorbit.edu');
+              setHealthSupportOpen(true);
               if (isMobile) onCloseMobile();
             }}
             className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-2xl text-xs font-semibold text-[#d0e5d9] hover:bg-[#2b5742] hover:text-white transition-all cursor-pointer"
@@ -367,6 +369,12 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
           </div>
         </div>
       )}
+
+      {/* Health & Support Interactive Modal */}
+      <HealthSupportModal
+        isOpen={healthSupportOpen}
+        onClose={() => setHealthSupportOpen(false)}
+      />
     </>
   );
 }

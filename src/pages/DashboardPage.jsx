@@ -24,7 +24,8 @@ import {
   RotateCw,
   Building2,
   User,
-  Shield
+  Shield,
+  Activity
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -40,6 +41,7 @@ import {
 } from 'recharts';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import HealthSupportModal from '../components/common/HealthSupportModal';
 
 export default function DashboardPage({
   onOpenAddAsset,
@@ -55,6 +57,9 @@ export default function DashboardPage({
   const isITManager = currentUser?.role === 'IT Manager';
   const isEmployee = currentUser?.role === 'Employee';
   const isManagement = isAdmin || isITManager;
+
+  const [healthSupportOpen, setHealthSupportOpen] = useState(false);
+  const [healthSupportTab, setHealthSupportTab] = useState('health');
 
   // Dynamic user greeting matching prompt instructions
   const greetingName = currentUser?.role === 'Admin' 
@@ -489,7 +494,11 @@ export default function DashboardPage({
                   </div>
 
                   <div className="pt-2 border-t border-[#E5EAE5] flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-emerald-700">
+                    <span 
+                      onClick={() => { setHealthSupportTab('health'); setHealthSupportOpen(true); }}
+                      className="text-[11px] font-bold text-emerald-700 cursor-pointer hover:underline"
+                      title="Click to view full health telemetry and diagnostics"
+                    >
                       Health: {asset.healthScore || 95}%
                     </span>
                     <button
@@ -597,8 +606,9 @@ export default function DashboardPage({
           </div>
 
           <div
-            onClick={() => alert('IT Helpdesk Hotline:\nExtension: 4022\nEmail: itdesk@assetorbit.edu\nLocation: Academic Block Room 301')}
+            onClick={() => { setHealthSupportTab('support'); setHealthSupportOpen(true); }}
             className="p-5 rounded-2xl bg-white border border-[#E5EAE5] hover:border-[#315F50] transition-all cursor-pointer shadow-xs flex items-center space-x-3.5"
+            title="Click to view Campus IT Support Helpdesk & SLA"
           >
             <div className="w-10 h-10 rounded-xl bg-[#E6EFE8] text-[#315F50] flex items-center justify-center">
               <ShieldCheck className="w-5 h-5" />
@@ -628,8 +638,17 @@ export default function DashboardPage({
                 Workspace Dashboard
               </span>
               <button
+                type="button"
+                onClick={() => { setHealthSupportTab('health'); setHealthSupportOpen(true); }}
+                className="text-[10px] font-extrabold uppercase tracking-wider text-white bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full flex items-center space-x-1.5 backdrop-blur-md transition-colors cursor-pointer"
+                title="View Live Fleet Health & Helpdesk SLA"
+              >
+                <Activity className="w-3 h-3 text-[#badcc9]" />
+                <span>Health &amp; Support Hub</span>
+              </button>
+              <button
                 onClick={() => { window.location.reload(); }}
-                className="p-1 rounded-full bg-white/10 hover:bg-white/20 text-[#badcc9] hover:text-white transition-colors"
+                className="p-1 rounded-full bg-white/10 hover:bg-white/20 text-[#badcc9] hover:text-white transition-colors cursor-pointer"
                 title="Refresh live dashboard metrics"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -1170,6 +1189,13 @@ export default function DashboardPage({
           </div>
         </div>
       </div>
+
+      {/* Health & Support Interactive Modal */}
+      <HealthSupportModal
+        isOpen={healthSupportOpen}
+        onClose={() => setHealthSupportOpen(false)}
+        initialTab={healthSupportTab}
+      />
     </div>
   );
 }
