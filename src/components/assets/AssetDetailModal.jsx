@@ -58,10 +58,10 @@ export default function AssetDetailModal({ isOpen, onClose, asset, onReportIssue
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-6">
+    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+      <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[88vh] overflow-hidden my-auto">
         {/* Modal Top Header */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 flex-shrink-0">
           <div className="flex items-center space-x-3.5">
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-brand-600 to-sky-500 text-white flex items-center justify-center font-bold shadow-md">
               <Box className="w-6 h-6" />
@@ -114,7 +114,7 @@ export default function AssetDetailModal({ isOpen, onClose, asset, onReportIssue
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center space-x-2 px-6 pt-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
+        <div className="flex items-center space-x-2 px-6 pt-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex-shrink-0">
           <button
             onClick={() => setActiveTab('overview')}
             className={`pb-2.5 px-3 text-xs font-bold transition-all border-b-2 ${
@@ -158,7 +158,7 @@ export default function AssetDetailModal({ isOpen, onClose, asset, onReportIssue
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {activeTab === 'overview' && (
             <>
               {/* Top Summary Banner */}

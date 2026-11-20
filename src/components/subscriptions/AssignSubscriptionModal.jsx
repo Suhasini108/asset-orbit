@@ -1,12 +1,47 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, UserPlus, CheckCircle2, ShieldCheck, Mail, Building2, Key, Filter, Shield } from 'lucide-react';
+import { X, UserPlus, CheckCircle2, ShieldCheck, Mail, Building2, Key, Filter, Shield, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/apiClient';
 
-export default function AssignSubscriptionModal({ isOpen, onClose, subscription }) {
-  const { updateSubscription, addNotification } = useApp();
+export default function AssignSubscriptionModal({ isOpen, onClose, subscription: initialSub }) {
+  const { subscriptions = [], updateSubscription, addNotification } = useApp();
   const { registeredEmployees = [], currentUser } = useAuth();
+
+  // Filter ONLY available/active subscriptions
+  const now = Date.now();
+  const availableSubscriptions = useMemo(() => {
+    return (subscriptions || []).filter(s => {
+      const isAct = s.status === 'Active' || s.status === 'Available';
+      const notExp = !s.renewalDate || new Date(s.renewalDate).getTime() > now;
+      return isAct && notExp;
+    });
+  }, [subscriptions, now]);
+
+  // Selected subscription ID state
+  const [selectedSubId, setSelectedSubId] = useState(
+    initialSub?.id || (availableSubscriptions[0]?.id || (subscriptions[0]?.id || ''))
+  );
+
+  useEffect(() => {
+    if (initialSub?.id) {
+      setSelectedSubId(initialSub.id);
+    } else if (availableSubscriptions.length > 0) {
+      setSelectedSubId(availableSubscriptions[0].id);
+    }
+  }, [initialSub, availableSubscriptions]);
+
+  const targetSubscription = useMemo(() => {
+    return subscriptions.find(s => s.id === selectedSubId) || initialSub || subscriptions[0] || null;
+  }, [subscriptions, selectedSubId, initialSub]);
+
+  // Verify availability
+  const isAvailable = useMemo(() => {
+    if (!targetSubscription) return false;
+    const isAct = targetSubscription.status === 'Active' || targetSubscription.status === 'Available';
+    const notExp = !targetSubscription.renewalDate || new Date(targetSubscription.renewalDate).getTime() > now;
+    return isAct && notExp;
+  }, [targetSubscription, now]);
 
   // Category and sub-branches mapping
   const CATEGORIES = [
@@ -38,12 +73,27 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription 
   ];
 
   // Auto-detect subscription department
-  const subDept = subscription?.department || 'ISE';
+  const subDept = targetSubscription?.department || 'ISE';
   const initialCat = subDept === 'Administration' ? 'Administration' 
                    : (['IT Center', 'Operations & IT'].includes(subDept) ? 'Operations & IT' : 'Engineering');
   
   const [selectedCategory, setSelectedCategory] = useState(initialCat);
   const [selectedSubBranch, setSelectedSubBranch] = useState(subDept);
+
+  // Update category and sub-branch when targetSubscription changes
+  useEffect(() => {
+    if (targetSubscription?.department) {
+      const dept = targetSubscription.department;
+      setSelectedSubBranch(dept);
+      if (['CSE', 'ISE', 'AI&ML', 'ECE', 'EEE', 'Mechanical', 'Civil'].includes(dept)) {
+        setSelectedCategory('Engineering');
+      } else if (['IT Center', 'Campus Networking', 'Data Center', 'Audio Visual', 'Campus Security'].includes(dept)) {
+        setSelectedCategory('Operations & IT');
+      } else if (['Principal Office', 'Dean Academic', 'Registrar', 'Examination Cell', 'Accounts & Finance'].includes(dept)) {
+        setSelectedCategory('Administration');
+      }
+    }
+  }, [targetSubscription?.id]);
 
   // Available sub-branches
   const availableSubBranches = useMemo(() => {
@@ -93,17 +143,22 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription 
     }
   }, [filteredEmployees]);
 
-  if (!isOpen || !subscription) return null;
+  if (!isOpen || !targetSubscription) return null;
 
   const currentSelectedEmployee = (registeredEmployees || []).find(e => e.email === selectedEmployeeEmail);
 
   const handleAssign = async (e) => {
     e.preventDefault();
+    if (!isAvailable) {
+      alert('Cannot assign an expired or inactive subscription. Only available, active subscriptions can be assigned.');
+      return;
+    }
+
     setSubmitting(true);
 
     let empName = '';
     let empEmail = '';
-    let empDept = selectedSubBranch !== 'all' ? selectedSubBranch : (subscription.department || 'ISE');
+    let empDept = selectedSubBranch !== 'all' ? selectedSubBranch : (targetSubscription.department || 'ISE');
 
     if (isCustom) {
       empName = customName.trim();
@@ -133,24 +188,24 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription 
       status: 'Active',
       seatType,
       assignmentDate: new Date().toISOString().split('T')[0],
-      notes: `${subscription.notes || ''}\n[${new Date().toISOString().slice(0, 10)}] Assigned to ${empName} (${empEmail}) in ${empDept} by ${currentUser?.name || 'Admin'} (${currentUser?.role || 'Staff'}). Seat: ${seatType}. Notes: ${notes || 'N/A'}`.trim()
+      notes: `${targetSubscription.notes || ''}\n[${new Date().toISOString().slice(0, 10)}] Assigned to ${empName} (${empEmail}) in ${empDept} by ${currentUser?.name || 'Admin'} (${currentUser?.role || 'Staff'}). Seat: ${seatType}. Notes: ${notes || 'N/A'}`.trim()
     };
 
     // 1. Update in local AppContext state
     if (typeof updateSubscription === 'function') {
-      updateSubscription(subscription.id, updatedData);
+      updateSubscription(targetSubscription.id, updatedData);
     }
 
     // 2. Sync with Backend API
     try {
-      await api.put(`/subscriptions/${subscription.id}`, updatedData);
+      await api.put(`/subscriptions/${targetSubscription.id}`, updatedData);
     } catch (err) {
       console.warn('Backend sync failed, state preserved locally:', err);
     }
 
     addNotification({
       title: `Subscription License Assigned`,
-      description: `${subscription.name} assigned to ${empName} (${empDept}) by ${currentUser?.name || 'Management'}.`,
+      description: `${targetSubscription.name} assigned to ${empName} (${empDept}) by ${currentUser?.name || 'Management'}.`,
       type: 'sub_assigned',
       category: 'Subscription',
       link: '/subscriptions'
@@ -161,51 +216,101 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription 
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-[#E5EAE5] overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200 font-sans">
+    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-[#E5EAE5] flex flex-col max-h-[88vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 font-sans">
         
-        {/* Modal Header */}
-        <div className="px-6 py-5 border-b border-[#E5EAE5] flex items-center justify-between bg-[#F7F8F5]">
+        {/* Pinned Modal Header (Guaranteed NEVER Cut Off) */}
+        <div className="px-6 py-4 border-b border-[#E5EAE5] flex items-center justify-between bg-[#F7F8F5] flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#315F50] text-white flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 rounded-2xl bg-[#315F50] text-white flex items-center justify-center shadow-md flex-shrink-0">
               <Key className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#172D27]">
-                Assign Software License to Employee
+              <h3 className="text-base font-extrabold text-[#172D27] leading-tight">
+                Assign Available Subscription License
               </h3>
-              <p className="text-xs text-[#718078]">
+              <p className="text-xs text-[#718078] mt-0.5">
                 Authorized for <span className="font-bold text-[#315F50]">Admin</span> &amp; <span className="font-bold text-[#315F50]">IT Manager</span>
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-[#718078] hover:text-[#172D27] hover:bg-slate-100 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-[#718078] hover:text-[#172D27] hover:bg-slate-200/60 transition-colors cursor-pointer flex-shrink-0"
+            title="Close Form"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Subscription Target Banner */}
-        <div className="p-4 mx-6 mt-5 rounded-2xl bg-[#F0F4F1] border border-[#CBDCD0] flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#315F50] block">
-              Target Subscription License
-            </span>
-            <p className="text-sm font-bold text-[#172D27]">{subscription.name}</p>
-            <p className="text-xs text-[#718078]">
-              {subscription.vendor || 'MathWorks'} &bull; {subscription.plan || 'Campuswide Suite'} (₹{Number(subscription.cost || 0).toLocaleString('en-IN')})
-            </p>
-          </div>
-          <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#E6EFE8] text-[#315F50] border border-[#A9C7B5]">
-            Active License
-          </span>
-        </div>
-
-        {/* Form Body */}
-        <form onSubmit={handleAssign} className="p-6 space-y-4">
+        {/* Scrollable Form Body */}
+        <form onSubmit={handleAssign} className="p-6 space-y-4 overflow-y-auto flex-1">
           
+          {/* Target Subscription Selector (Only Available Subscriptions Allowed) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#172D27]">
+                Select Available Software License *
+              </label>
+              <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                isAvailable
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : 'bg-rose-100 text-rose-800 border border-rose-300'
+              }`}>
+                {isAvailable ? '🟢 Active & Available' : '🔴 Expired / Inactive (Cannot Assign)'}
+              </span>
+            </div>
+
+            <select
+              value={selectedSubId}
+              onChange={(e) => setSelectedSubId(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBDCD0] text-xs font-semibold text-[#172D27] bg-white focus:outline-none focus:border-[#315F50]"
+            >
+              <optgroup label="Available Active Subscriptions">
+                {availableSubscriptions.map(s => (
+                  <option key={s.id} value={s.id}>
+                    [Active] {s.name} ({s.department || 'Campuswide'}) — Renews: {s.renewalDate || 'Active'}
+                  </option>
+                ))}
+              </optgroup>
+              {subscriptions.filter(s => !availableSubscriptions.includes(s)).length > 0 && (
+                <optgroup label="Expired / Inactive (Unavailable)">
+                  {subscriptions.filter(s => !availableSubscriptions.includes(s)).map(s => (
+                    <option key={s.id} value={s.id} disabled>
+                      [Unavailable] {s.name} (Expired / Needs Renewal)
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
+
+          {/* If Inactive / Expired Notice */}
+          {!isAvailable && (
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center space-x-2.5 text-xs">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+              <span>
+                <strong>Subscription Unavailable:</strong> Only active, unexpired subscriptions can be assigned. Please renew this license first.
+              </span>
+            </div>
+          )}
+
+          {/* Subscription Target Banner */}
+          <div className="p-4 rounded-2xl bg-[#F0F4F1] border border-[#CBDCD0] flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#315F50] block">
+                Target Subscription License
+              </span>
+              <p className="text-sm font-bold text-[#172D27]">{targetSubscription.name}</p>
+              <p className="text-xs text-[#718078]">
+                {targetSubscription.vendor || 'MathWorks'} &bull; {targetSubscription.plan || 'Campuswide Suite'} (₹{Number(targetSubscription.cost || 0).toLocaleString('en-IN')})
+              </p>
+            </div>
+            <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#E6EFE8] text-[#315F50] border border-[#A9C7B5]">
+              {targetSubscription.seats || 25} Seats Pool
+            </span>
+          </div>
+
           {/* Category & Sub-Branch Filter Grid */}
           <div className="p-3 rounded-2xl bg-[#F7F9F6] border border-[#E5EAE5] space-y-2.5">
             <div className="flex items-center justify-between">
@@ -264,7 +369,7 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription 
           {/* Toggle: Registered vs Custom */}
           <div className="flex items-center justify-between pt-1">
             <label className="text-xs font-bold text-[#172D27]">
-              Choose Assignee ({filteredEmployees.length} Available)
+              Choose Assignee ({filteredEmployees.length} Available in this Sub-Branch)
             </label>
             <button
               type="button"
@@ -288,7 +393,7 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription 
                 ) : (
                   filteredEmployees.map((emp) => (
                     <option key={emp.email} value={emp.email}>
-                      {emp.name} — {emp.title || 'Staff'} ({emp.subBranch || emp.department})
+                      {emp.name} — {emp.title || 'Staff Member'} ({emp.subBranch || emp.department})
                     </option>
                   ))
                 )}
@@ -390,7 +495,7 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription 
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#E5EAE5]">
+          <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#E5EAE5] flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -400,8 +505,12 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription 
             </button>
             <button
               type="submit"
-              disabled={submitting}
-              className="px-5 py-2.5 rounded-xl text-xs font-extrabold bg-[#315F50] hover:bg-[#244B3E] text-white shadow-md transition-all flex items-center space-x-2 cursor-pointer"
+              disabled={submitting || !isAvailable}
+              className={`px-5 py-2.5 rounded-xl text-xs font-extrabold text-white shadow-md transition-all flex items-center space-x-2 ${
+                isAvailable 
+                  ? 'bg-[#315F50] hover:bg-[#244B3E] cursor-pointer' 
+                  : 'bg-slate-400 cursor-not-allowed'
+              }`}
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{submitting ? 'Assigning...' : 'Confirm Assignment'}</span>

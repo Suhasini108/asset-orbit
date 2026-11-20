@@ -206,9 +206,16 @@ export default function SubscriptionsPage({ initialTab = 'all' }) {
             {isManagement && (
               <>
                 <button
-                  onClick={() => setAssigningSubscription(subscriptions[0] || null)}
-                  className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#badcc9] hover:bg-[#d8eee1] text-[#172D27] transition-all shadow-md"
-                  title="Assign Software License to Employee"
+                  onClick={() => {
+                    const available = subscriptions.filter(s => (s.status === 'Active' || s.status === 'Available') && (!s.renewalDate || new Date(s.renewalDate) > new Date()));
+                    if (available.length === 0) {
+                      alert('No available active subscriptions found. Only active, unexpired subscriptions can be assigned to employees.');
+                      return;
+                    }
+                    setAssigningSubscription(available[0]);
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#badcc9] hover:bg-[#d8eee1] text-[#172D27] transition-all shadow-md cursor-pointer"
+                  title="Assign Available Software License to Employee"
                 >
                   <UserPlus className="w-4 h-4 text-[#172D27]" />
                   <span>Assign to Employee</span>
@@ -523,14 +530,26 @@ export default function SubscriptionsPage({ initialTab = 'all' }) {
                       {/* Actions */}
                       <td className="py-3.5 px-6 text-right space-x-2 whitespace-nowrap">
                         {isManagement && (
-                          <button
-                            onClick={() => setAssigningSubscription(sub)}
-                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#E6EFE8] text-[#315F50] hover:bg-[#315F50] hover:text-white transition-all inline-flex items-center space-x-1 shadow-xs"
-                            title={`Assign ${sub.name} to Employee`}
-                          >
-                            <UserPlus className="w-3.5 h-3.5" />
-                            <span>Assign</span>
-                          </button>
+                          (() => {
+                            const isSubAvail = (sub.status === 'Active' || sub.status === 'Available') && (!sub.renewalDate || new Date(sub.renewalDate) > new Date());
+                            return isSubAvail ? (
+                              <button
+                                onClick={() => setAssigningSubscription(sub)}
+                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#E6EFE8] text-[#315F50] hover:bg-[#315F50] hover:text-white transition-all inline-flex items-center space-x-1 shadow-xs cursor-pointer"
+                                title={`Assign ${sub.name} to Employee`}
+                              >
+                                <UserPlus className="w-3.5 h-3.5" />
+                                <span>Assign</span>
+                              </button>
+                            ) : (
+                              <span 
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed inline-flex items-center space-x-1"
+                                title="Only available, active subscriptions can be assigned."
+                              >
+                                <span>Unavailable</span>
+                              </span>
+                            );
+                          })()
                         )}
                         {isAdmin ? (
                           <button

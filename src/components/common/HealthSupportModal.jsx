@@ -23,11 +23,11 @@ export default function HealthSupportModal({ isOpen, onClose, initialTab = 'heal
   const pendingTickets = tickets.filter(t => t.status !== 'Resolved').length;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-[#E5EAE5] overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-200 font-sans">
+    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-[#E5EAE5] flex flex-col max-h-[88vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 font-sans">
         
         {/* Header */}
-        <div className="px-6 py-5 border-b border-[#E5EAE5] bg-[#F7F8F5] flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-[#E5EAE5] bg-[#F7F8F5] flex items-center justify-between flex-shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-[#315F50] text-white flex items-center justify-center shadow-md">
               {activeTab === 'health' ? <Activity className="w-5 h-5" /> : <LifeBuoy className="w-5 h-5" />}
@@ -242,7 +242,7 @@ export default function HealthSupportModal({ isOpen, onClose, initialTab = 'heal
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[#E5EAE5] bg-[#F7F8F5] flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-[#E5EAE5] bg-[#F7F8F5] flex items-center justify-between flex-shrink-0">
           <span className="text-[11px] text-[#718078]">
             Signed in as: <strong>{currentUser?.name || 'User'}</strong> ({currentUser?.role})
           </span>

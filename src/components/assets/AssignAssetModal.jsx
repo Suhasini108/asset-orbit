@@ -1,15 +1,32 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, UserPlus, CheckCircle2, User, Building2, MapPin, Shield, Layers, Filter } from 'lucide-react';
+import { X, UserPlus, CheckCircle2, User, Building2, MapPin, Shield, Layers, Filter, Laptop, AlertCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/apiClient';
 
-export default function AssignAssetModal({ isOpen, onClose, asset }) {
-  const { updateAsset, addNotification } = useApp();
+export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset }) {
+  const { assets = [], updateAsset, addNotification } = useApp();
   const { registeredEmployees = [], currentUser } = useAuth();
 
   const isAdmin = currentUser?.role === 'Admin';
   const isITManager = currentUser?.role === 'IT Manager';
+
+  // Target Asset State (allows selecting from all available assets or switching)
+  const [selectedAssetId, setSelectedAssetId] = useState(initialAsset?.id || (assets[0]?.id || ''));
+
+  useEffect(() => {
+    if (initialAsset?.id) {
+      setSelectedAssetId(initialAsset.id);
+    } else if (assets.length > 0) {
+      // Prefer first available asset
+      const firstAvail = assets.find(a => a.status === 'Available' || a.status === 'Unassigned');
+      setSelectedAssetId(firstAvail ? firstAvail.id : assets[0].id);
+    }
+  }, [initialAsset, assets]);
+
+  const targetAsset = useMemo(() => {
+    return assets.find(a => a.id === selectedAssetId) || initialAsset || assets[0] || null;
+  }, [assets, selectedAssetId, initialAsset]);
 
   // Available categories & sub-branches
   const CATEGORIES = [
@@ -41,11 +58,23 @@ export default function AssignAssetModal({ isOpen, onClose, asset }) {
   ];
 
   // Auto-detect asset category & sub-branch
-  const initialCategory = asset?.category || (asset?.subBranch ? 'Engineering' : 'all');
-  const initialSubBranch = asset?.subBranch || 'all';
+  const initialCategory = targetAsset?.category || (targetAsset?.subBranch ? 'Engineering' : 'all');
+  const initialSubBranch = targetAsset?.subBranch || 'all';
 
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedSubBranch, setSelectedSubBranch] = useState(initialSubBranch);
+
+  // Update category/sub-branch filter when targetAsset changes
+  useEffect(() => {
+    if (targetAsset) {
+      if (targetAsset.category && targetAsset.category !== 'all') {
+        setSelectedCategory(targetAsset.category);
+      }
+      if (targetAsset.subBranch && targetAsset.subBranch !== 'all') {
+        setSelectedSubBranch(targetAsset.subBranch);
+      }
+    }
+  }, [targetAsset?.id]);
 
   // Available sub-branches based on selected category
   const availableSubBranches = useMemo(() => {
@@ -79,14 +108,20 @@ export default function AssignAssetModal({ isOpen, onClose, asset }) {
   const [customName, setCustomName] = useState('');
   const [customEmail, setCustomEmail] = useState('');
   const [isCustom, setIsCustom] = useState(false);
-  const [deskLocation, setDeskLocation] = useState(asset?.labRoom || asset?.location || '');
+  const [deskLocation, setDeskLocation] = useState(targetAsset?.labRoom || targetAsset?.location || '');
   const [assignmentNotes, setAssignmentNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Sync desk location when target asset changes
+  useEffect(() => {
+    if (targetAsset) {
+      setDeskLocation(targetAsset.labRoom || targetAsset.location || '');
+    }
+  }, [targetAsset?.id]);
 
   // Sync selected employee when filtered list changes
   useEffect(() => {
     if (filteredEmployees.length > 0) {
-      // If previous selection is still in list, keep it; else select first
       const stillInList = filteredEmployees.some(e => e.email === selectedEmployeeEmail);
       if (!stillInList) {
         setSelectedEmployeeEmail(filteredEmployees[0].email);
@@ -96,9 +131,10 @@ export default function AssignAssetModal({ isOpen, onClose, asset }) {
     }
   }, [filteredEmployees]);
 
-  if (!isOpen || !asset) return null;
+  if (!isOpen || !targetAsset) return null;
 
   const currentSelectedEmployee = (registeredEmployees || []).find(e => e.email === selectedEmployeeEmail);
+  const isAvailableAsset = targetAsset.status === 'Available' || targetAsset.status === 'Unassigned';
 
   const handleAssign = async (e) => {
     e.preventDefault();
@@ -106,7 +142,7 @@ export default function AssignAssetModal({ isOpen, onClose, asset }) {
 
     let empName = '';
     let empEmail = '';
-    let empDept = selectedSubBranch !== 'all' ? selectedSubBranch : (asset.subBranch || asset.category || 'General');
+    let empDept = selectedSubBranch !== 'all' ? selectedSubBranch : (targetAsset.subBranch || targetAsset.category || 'General');
 
     if (isCustom) {
       empName = customName.trim();
@@ -133,20 +169,20 @@ export default function AssignAssetModal({ isOpen, onClose, asset }) {
       assignedTo: empName,
       assignedUser: empName,
       assignedEmail: empEmail,
-      location: deskLocation || asset.location,
-      subBranch: asset.subBranch || empDept,
+      location: deskLocation || targetAsset.location,
+      subBranch: targetAsset.subBranch || empDept,
       statusChangeNote: `Assigned to ${empName} (${empEmail}) in ${empDept} by ${currentUser?.name || 'Admin'} (${currentUser?.role || 'Staff'}). Notes: ${assignmentNotes || 'N/A'}`
     };
 
     // 1. Update in local state via AppContext
-    updateAsset(asset.id, updatedData, currentUser?.name || 'Administrator');
+    updateAsset(targetAsset.id, updatedData, currentUser?.name || 'Administrator');
 
     // 2. Sync with backend API
     try {
-      await api.post(`/assets/${asset.id}/assign`, {
+      await api.post(`/assets/${targetAsset.id}/assign`, {
         employeeName: empName,
         employeeEmail: empEmail,
-        location: deskLocation || asset.location,
+        location: deskLocation || targetAsset.location,
         notes: assignmentNotes
       });
     } catch (err) {
@@ -154,7 +190,7 @@ export default function AssignAssetModal({ isOpen, onClose, asset }) {
     }
 
     addNotification({
-      title: `Asset Assigned: ${asset.name}`,
+      title: `Asset Assigned: ${targetAsset.name}`,
       description: `Equipment allocated to ${empName} (${empDept}) by ${currentUser?.name || 'Management'}.`,
       type: 'asset_assigned',
       category: 'Asset',
@@ -166,50 +202,96 @@ export default function AssignAssetModal({ isOpen, onClose, asset }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-[#E5EAE5] overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200 font-sans">
+    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-[#E5EAE5] flex flex-col max-h-[88vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 font-sans">
         
-        {/* Modal Header */}
-        <div className="px-6 py-5 border-b border-[#E5EAE5] flex items-center justify-between bg-[#F7F8F5]">
+        {/* Pinned Modal Header (Guaranteed NEVER Cut Off) */}
+        <div className="px-6 py-4 border-b border-[#E5EAE5] flex items-center justify-between bg-[#F7F8F5] flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#315F50] text-white flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 rounded-2xl bg-[#315F50] text-white flex items-center justify-center shadow-md flex-shrink-0">
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#172D27]">
+              <h3 className="text-base font-extrabold text-[#172D27] leading-tight">
                 Assign Asset to Department Employee
               </h3>
-              <p className="text-xs text-[#718078]">
+              <p className="text-xs text-[#718078] mt-0.5">
                 Authorized for <span className="font-bold text-[#315F50]">Admin</span> &amp; <span className="font-bold text-[#315F50]">IT Manager</span>
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-[#718078] hover:text-[#172D27] hover:bg-slate-100 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-[#718078] hover:text-[#172D27] hover:bg-slate-200/60 transition-colors cursor-pointer flex-shrink-0"
+            title="Close Form"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleAssign} className="p-6 space-y-4">
+        {/* Scrollable Form Body */}
+        <form onSubmit={handleAssign} className="p-6 space-y-4 overflow-y-auto flex-1">
           
+          {/* Target Equipment Selector (Allows choosing any available asset) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#172D27] flex items-center space-x-1.5">
+                <Laptop className="w-3.5 h-3.5 text-[#315F50]" />
+                <span>Select Equipment to Assign *</span>
+              </label>
+              <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                isAvailableAsset 
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+              }`}>
+                {isAvailableAsset ? '🟢 Available in Pool' : `🟡 Reassigning (was ${targetAsset.assignedTo || targetAsset.assignedUser})`}
+              </span>
+            </div>
+
+            <select
+              value={selectedAssetId}
+              onChange={(e) => setSelectedAssetId(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBDCD0] text-xs font-semibold text-[#172D27] bg-white focus:outline-none focus:border-[#315F50]"
+            >
+              <optgroup label="Available Equipment (Ready to Assign)">
+                {assets.filter(a => a.status === 'Available' || a.status === 'Unassigned').map(a => (
+                  <option key={a.id} value={a.id}>
+                    [Available] {a.id} — {a.name} ({a.subBranch || a.category})
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Currently Assigned Equipment (Reassign)">
+                {assets.filter(a => a.status === 'Assigned').map(a => (
+                  <option key={a.id} value={a.id}>
+                    [Assigned to {a.assignedTo || a.assignedUser}] {a.id} — {a.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Other Assets">
+                {assets.filter(a => a.status !== 'Available' && a.status !== 'Unassigned' && a.status !== 'Assigned').map(a => (
+                  <option key={a.id} value={a.id}>
+                    [{a.status}] {a.id} — {a.name}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+
           {/* Target Asset Summary Pill */}
           <div className="p-3.5 rounded-2xl bg-[#E6EFE8] border border-[#A9C7B5]/60 flex items-center justify-between">
             <div>
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#315F50] block">
-                Target Equipment
+                Selected Asset Model
               </span>
               <span className="text-sm font-black text-[#172D27] block">
-                {asset.name}
+                {targetAsset.name}
               </span>
               <span className="text-xs text-[#718078] font-mono">
-                Tag: {asset.id} • {asset.subBranch || asset.category || 'General'}
+                Tag: {targetAsset.id} &bull; {targetAsset.subBranch || targetAsset.category || 'General'} &bull; SN: {targetAsset.serialNumber || 'N/A'}
               </span>
             </div>
-            <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
-              {asset.status === 'Assigned' ? 'Reassigning' : 'Ready to Assign'}
+            <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-white text-[#315F50] border border-[#A9C7B5]">
+              ₹{Number(targetAsset.cost || 0).toLocaleString('en-IN')}
             </span>
           </div>
 
@@ -218,12 +300,12 @@ export default function AssignAssetModal({ isOpen, onClose, asset }) {
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[#172D27] flex items-center space-x-1.5">
                 <Filter className="w-3.5 h-3.5 text-[#315F50]" />
-                <span>Filter Staff by Category &amp; Sub-Branch</span>
+                <span>Filter Staff by Department &amp; Sub-Branch</span>
               </span>
               <button
                 type="button"
                 onClick={() => { setSelectedCategory('all'); setSelectedSubBranch('all'); }}
-                className="text-[10px] font-bold text-[#315F50] hover:underline"
+                className="text-[10px] font-bold text-[#315F50] hover:underline cursor-pointer"
               >
                 Reset Filters
               </button>
@@ -271,14 +353,14 @@ export default function AssignAssetModal({ isOpen, onClose, asset }) {
           {/* Toggle between Registered Employee vs Custom Entry */}
           <div className="flex items-center justify-between pt-1">
             <label className="text-xs font-bold text-[#172D27]">
-              Choose Assignee ({filteredEmployees.length} Available)
+              Choose Assignee ({filteredEmployees.length} Available in this Sub-Branch)
             </label>
             <button
               type="button"
               onClick={() => setIsCustom(!isCustom)}
               className="text-[11px] font-bold text-[#315F50] hover:underline cursor-pointer"
             >
-              {isCustom ? '← Select Registered Employee' : '+ Enter Custom Employee'}
+              {isCustom ? '← Select Registered Staff' : '+ Enter Custom Employee'}
             </button>
           </div>
 
@@ -295,7 +377,7 @@ export default function AssignAssetModal({ isOpen, onClose, asset }) {
                 ) : (
                   filteredEmployees.map((emp) => (
                     <option key={emp.email} value={emp.email}>
-                      {emp.name} — {emp.title || 'Staff'} ({emp.subBranch || emp.department})
+                      {emp.name} — {emp.title || 'Staff Member'} ({emp.subBranch || emp.department})
                     </option>
                   ))
                 )}
@@ -371,7 +453,7 @@ export default function AssignAssetModal({ isOpen, onClose, asset }) {
             />
           </div>
 
-          {/* Assignment Notes */}
+          {/* Allocation Notes */}
           <div>
             <label className="block text-xs font-bold text-[#172D27] mb-1">
               Allocation Notes / Handover Remarks
@@ -394,7 +476,7 @@ export default function AssignAssetModal({ isOpen, onClose, asset }) {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#E5EAE5]">
+          <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#E5EAE5] flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
