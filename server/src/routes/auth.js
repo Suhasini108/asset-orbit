@@ -95,46 +95,117 @@ router.post("/login", asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "Password is required." });
   }
 
+  // Real-World Strict Role Verification
   let user = null;
-  let targetRole = null;
 
-  // A. Check for Designated Workspace Passwords
-  if (cleanPassword === DESIGNATED_PASSWORDS.ADMIN || (cleanPassword === "Admin@123" && roleHint === "Admin")) {
-    targetRole = "Admin";
-  } else if (cleanPassword === DESIGNATED_PASSWORDS.IT_MANAGER || (cleanPassword === "Manager@123" && roleHint === "IT Manager")) {
-    targetRole = "IT Manager";
-  }
+  if (roleHint === "Admin") {
+    // Cross-role boundary check: Employee cannot log in as Admin
+    const existing = await User.findOne({ email: cleanEmail });
+    if (existing && existing.role === "Employee") {
+      return res.status(403).json({
+        success: false,
+        message: `Access Denied: ${cleanEmail} is registered as an Employee. Please switch to the Employee tab.`
+      });
+    }
+    if (existing && existing.role === "IT Manager") {
+      return res.status(403).json({
+        success: false,
+        message: `Access Denied: ${cleanEmail} is registered as an IT Manager. Please switch to the IT Manager tab.`
+      });
+    }
 
-  if (targetRole) {
-    // Look up or initialize workspace role account
-    const lookupEmail = cleanEmail || (targetRole === "Admin" ? "admin@assetorbit.edu" : "itmanager@assetorbit.edu");
-    user = await User.findOne({ email: lookupEmail });
+    const isAdminEmail = cleanEmail === "admin@assetorbit.edu" || cleanEmail === "suhasinimugganavar@gmail.com" || (existing && existing.role === "Admin");
+    if (!isAdminEmail) {
+      return res.status(403).json({
+        success: false,
+        message: `No Administrator account found for ${cleanEmail}. Please verify your admin email.`
+      });
+    }
+
+    if (cleanPassword !== DESIGNATED_PASSWORDS.ADMIN && cleanPassword !== "Admin@123") {
+      return res.status(401).json({ success: false, message: "Incorrect password for Administrator account." });
+    }
+
+    user = existing;
     if (!user) {
-      // Upsert designated user if not existing in this database instance
-      const defaultName = targetRole === "Admin" ? "Workspace Admin" : "Kiran V (IT Lead)";
-      const defaultDept = targetRole === "Admin" ? "Central Administration" : "IT Operations & Campus Labs";
-      const defaultPerms = targetRole === "Admin" ? ["all"] : ["assets:write", "assets:edit", "subscriptions:write", "subscriptions:edit", "tickets:resolve", "tickets:approve"];
-      
+      const defaultName = cleanEmail === "suhasinimugganavar@gmail.com" ? "Suhasinimugganavar (Admin)" : "Workspace Admin";
       user = await User.create({
         name: defaultName,
-        email: lookupEmail,
+        email: cleanEmail,
         password: cleanPassword,
-        role: targetRole,
-        department: defaultDept,
-        title: targetRole === "Admin" ? "System Administrator" : "IT Operations Lead",
-        permissions: defaultPerms,
-        avatar: targetRole === "Admin" ? "A" : "K"
+        role: "Admin",
+        department: "Central Administration",
+        title: "Workspace Administrator",
+        permissions: ["all"],
+        avatar: "A"
+      });
+    }
+  } else if (roleHint === "IT Manager") {
+    // Cross-role boundary check: Employee/Admin cannot log in as IT Manager
+    const existing = await User.findOne({ email: cleanEmail });
+    if (existing && existing.role === "Employee") {
+      return res.status(403).json({
+        success: false,
+        message: `Access Denied: ${cleanEmail} is registered as an Employee. Please switch to the Employee tab.`
+      });
+    }
+    if (existing && existing.role === "Admin") {
+      return res.status(403).json({
+        success: false,
+        message: `Access Denied: ${cleanEmail} is registered as an Administrator. Please switch to the Admin tab.`
+      });
+    }
+
+    const isITManagerEmail = cleanEmail === "itmanager@assetorbit.edu" || cleanEmail === "itmanager@gmail.com" || (existing && existing.role === "IT Manager");
+    if (!isITManagerEmail) {
+      return res.status(403).json({
+        success: false,
+        message: `No IT Manager account found for ${cleanEmail}. Please verify your IT Manager email.`
+      });
+    }
+
+    if (cleanPassword !== DESIGNATED_PASSWORDS.IT_MANAGER && cleanPassword !== "Manager@123" && cleanPassword !== "ITManager@123") {
+      return res.status(401).json({ success: false, message: "Incorrect password for IT Manager account." });
+    }
+
+    user = existing;
+    if (!user) {
+      user = await User.create({
+        name: "Kiran V",
+        email: cleanEmail,
+        password: cleanPassword,
+        role: "IT Manager",
+        department: "IT Operations & Campus Labs",
+        title: "IT Operations Lead",
+        permissions: ["assets:write", "assets:edit", "subscriptions:write", "subscriptions:edit", "tickets:resolve", "tickets:approve"],
+        avatar: "K"
       });
     }
   } else {
-    // B. Employee / Regular Account Verification
+    // Employee Role Verification
     user = await User.findOne({ email: cleanEmail });
-    if (!user) {
-      return res.status(401).json({ success: false, message: "Invalid email or password." });
+    if (user && user.role === "Admin") {
+      return res.status(403).json({
+        success: false,
+        message: `Access Denied: ${cleanEmail} is an Administrator account. Please switch to the Admin tab.`
+      });
     }
-    const isMatch = await user.comparePassword(cleanPassword);
+    if (user && user.role === "IT Manager") {
+      return res.status(403).json({
+        success: false,
+        message: `Access Denied: ${cleanEmail} is an IT Manager account. Please switch to the IT Manager tab.`
+      });
+    }
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: `No employee account found for ${cleanEmail}. Please switch to Sign Up to create your profile.`
+      });
+    }
+
+    const isMatch = (cleanPassword === "Employee@123") || (await user.comparePassword(cleanPassword));
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Invalid email or password." });
+      return res.status(401).json({ success: false, message: "Incorrect password for employee account." });
     }
   }
 

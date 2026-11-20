@@ -662,39 +662,102 @@ export function AuthProvider({ children }) {
     return { success: true, user: newEmp };
   };
 
-  // 2. Dynamic Login Logic matching exact prompt requirements:
-  // - When we enter different email with the Admin password (Admin@123), it saves that email and logs in as Admin
-  // - When we enter different email with the ITManager password (Manager@123), it saves that email and logs in as ITManager
-  // - For employees: each employee has their own email and password
-  const login = (emailInput, passwordInput, selectedRoleHint = null) => {
+  // 2. Strict Real-World Authentication & Role Verification:
+  // - Admin tab: ONLY authorized Admin accounts can sign in with Admin password (Admin@123)
+  //   If an employee or IT manager tries to sign in here, they are blocked with a clear role error!
+  // - IT Manager tab: ONLY authorized IT Manager accounts can sign in with IT Manager password (Manager@123)
+  //   If an employee or admin tries to sign in here, they are blocked with a clear role error!
+  // - Employee tab: ONLY registered employees can sign in with their password (Employee@123)
+  //   If an admin or IT manager tries to sign in here, they are prompted to use their designated tab!
+  const login = (emailInput, passwordInput, selectedRoleHint = 'Admin') => {
     const enteredEmail = (emailInput || '').trim();
     const enteredPassword = (passwordInput || '').trim();
     const emailLower = enteredEmail.toLowerCase();
+    const roleHint = selectedRoleHint || 'Admin';
 
+    if (!enteredEmail) {
+      return { success: false, error: 'Email address is required.' };
+    }
     if (!enteredPassword) {
       return { success: false, error: 'Password is required.' };
     }
 
-    // A. Check if the password matches the designated Admin Password
-    if (enteredPassword === DESIGNATED_PASSWORDS.ADMIN || (enteredPassword === 'Admin@123' && (selectedRoleHint === 'Admin' || !selectedRoleHint))) {
-      // Save entered email and log in as Admin
-      const adminName = (emailLower === 'admin@assetorbit.edu' || !enteredEmail.includes('@'))
-        ? 'Admin'
-        : enteredEmail.split('@')[0].split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+    // Identify account types
+    const isKnownEmployee = () => {
+      return (
+        registeredEmployees.some(e => e.email?.toLowerCase() === emailLower) ||
+        DEFAULT_EMPLOYEES.some(e => e.email?.toLowerCase() === emailLower)
+      );
+    };
 
-      const finalAdminEmail = enteredEmail || 'admin@assetorbit.edu';
-      if (enteredEmail && enteredEmail.includes('@')) {
-        localStorage.setItem('ao_admin_email', enteredEmail);
+    const isKnownAdmin = () => {
+      const storedAdminEmail = (localStorage.getItem('ao_admin_email') || '').toLowerCase();
+      return (
+        emailLower === 'admin@assetorbit.edu' ||
+        emailLower === 'suhasinimugganavar@gmail.com' ||
+        (storedAdminEmail && emailLower === storedAdminEmail)
+      );
+    };
+
+    const isKnownITManager = () => {
+      return (
+        emailLower === 'itmanager@assetorbit.edu' ||
+        emailLower === 'itmanager@gmail.com'
+      );
+    };
+
+    // =========================================================================
+    // 1. ADMIN ROLE VERIFICATION
+    // =========================================================================
+    if (roleHint === 'Admin') {
+      // Cross-role boundary check 1: Is this user an Employee?
+      if (isKnownEmployee()) {
+        return {
+          success: false,
+          error: `Access Denied: ${enteredEmail} is registered as an Employee. Please switch to the Employee tab.`
+        };
       }
+
+      // Cross-role boundary check 2: Is this user an IT Manager?
+      if (isKnownITManager()) {
+        return {
+          success: false,
+          error: `Access Denied: ${enteredEmail} is registered as an IT Manager. Please switch to the IT Manager tab.`
+        };
+      }
+
+      // Authorization check: Is this email an approved Administrator?
+      if (!isKnownAdmin()) {
+        return {
+          success: false,
+          error: `No Administrator account found for ${enteredEmail}. Please verify your admin email or contact your IT department.`
+        };
+      }
+
+      // Password verification
+      if (enteredPassword !== DESIGNATED_PASSWORDS.ADMIN && enteredPassword !== 'Admin@123') {
+        return {
+          success: false,
+          error: 'Incorrect password for Administrator account.'
+        };
+      }
+
+      // Validated Admin user session
+      const adminName = (emailLower === 'admin@assetorbit.edu')
+        ? 'Workspace Admin'
+        : (emailLower === 'suhasinimugganavar@gmail.com')
+        ? 'Suhasinimugganavar (Admin)'
+        : enteredEmail.split('@')[0].split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ') + ' (Admin)';
+
       const adminUser = {
         ...PRESET_USERS['Admin'],
-        email: finalAdminEmail,
-        name: adminName === 'Admin' ? 'Admin' : `${adminName} (Admin)`
+        email: enteredEmail,
+        name: adminName
       };
       setCurrentUser(adminUser);
 
-      // Sync with backend API
-      api.post('/auth/login', { email: finalAdminEmail, password: enteredPassword, roleHint: 'Admin' })
+      // Background backend sync
+      api.post('/auth/login', { email: enteredEmail, password: enteredPassword, roleHint: 'Admin' })
         .then(res => {
           if (res.ok && res.raw?.token) {
             sessionStorage.setItem('assetorbit_session_token', res.raw.token);
@@ -705,22 +768,56 @@ export function AuthProvider({ children }) {
       return { success: true, user: adminUser };
     }
 
-    // B. Check if the password matches the designated IT Manager Password
-    if (enteredPassword === DESIGNATED_PASSWORDS.IT_MANAGER || enteredPassword === 'Manager@123' || enteredPassword === 'ITManager@123') {
-      // Save entered email and log in as IT Manager
-      const itManagerName = (emailLower === 'itmanager@assetorbit.edu' || !enteredEmail.includes('@'))
+    // =========================================================================
+    // 2. IT MANAGER ROLE VERIFICATION
+    // =========================================================================
+    if (roleHint === 'IT Manager') {
+      // Cross-role boundary check 1: Is this user an Employee?
+      if (isKnownEmployee()) {
+        return {
+          success: false,
+          error: `Access Denied: ${enteredEmail} is registered as an Employee. Please switch to the Employee tab.`
+        };
+      }
+
+      // Cross-role boundary check 2: Is this user an Admin?
+      if (isKnownAdmin()) {
+        return {
+          success: false,
+          error: `Access Denied: ${enteredEmail} is registered as an Administrator. Please switch to the Admin tab.`
+        };
+      }
+
+      // Authorization check: Is this email an approved IT Manager?
+      if (!isKnownITManager()) {
+        return {
+          success: false,
+          error: `No IT Manager account found for ${enteredEmail}. Please verify your IT Manager email.`
+        };
+      }
+
+      // Password verification
+      if (enteredPassword !== DESIGNATED_PASSWORDS.IT_MANAGER && enteredPassword !== 'Manager@123' && enteredPassword !== 'ITManager@123') {
+        return {
+          success: false,
+          error: 'Incorrect password for IT Manager account.'
+        };
+      }
+
+      // Validated IT Manager user session
+      const itManagerName = (emailLower === 'itmanager@assetorbit.edu')
         ? 'Kiran V'
-        : enteredEmail.split('@')[0].split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+        : enteredEmail.split('@')[0].split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ') + ' (IT Manager)';
 
       const itManagerUser = {
         ...PRESET_USERS['IT Manager'],
-        email: enteredEmail || 'itmanager@assetorbit.edu',
-        name: itManagerName === 'Kiran V' ? 'Kiran V' : `${itManagerName} (IT Manager)`
+        email: enteredEmail,
+        name: itManagerName
       };
       setCurrentUser(itManagerUser);
 
-      // Sync with backend API
-      api.post('/auth/login', { email: enteredEmail || 'itmanager@assetorbit.edu', password: enteredPassword, roleHint: 'IT Manager' })
+      // Background backend sync
+      api.post('/auth/login', { email: enteredEmail, password: enteredPassword, roleHint: 'IT Manager' })
         .then(res => {
           if (res.ok && res.raw?.token) {
             sessionStorage.setItem('assetorbit_session_token', res.raw.token);
@@ -731,141 +828,108 @@ export function AuthProvider({ children }) {
       return { success: true, user: itManagerUser };
     }
 
-    // C. Employee Authentication (Individual Email & Password)
-    // 1. Direct match by exact email in registeredEmployees
-    let matchedEmployee = registeredEmployees.find(e => e.email?.toLowerCase() === emailLower);
-
-    // 2. Derive candidate human name from email (e.g. "sachin.joshi@gmail.com" -> "Sachin Joshi")
-    const cleanEmailName = emailLower.includes('@')
-      ? emailLower.split('@')[0]
-          .replace(/[._\-+]/g, ' ')
-          .split(' ')
-          .filter(Boolean)
-          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(' ')
-      : '';
-
-    // If not matched by exact email, check by candidate name in registeredEmployees
-    if (!matchedEmployee && cleanEmailName) {
-      matchedEmployee = registeredEmployees.find(e =>
-        e.name && (
-          e.name.toLowerCase() === cleanEmailName.toLowerCase() ||
-          e.name.toLowerCase().includes(cleanEmailName.toLowerCase()) ||
-          cleanEmailName.toLowerCase().includes(e.name.toLowerCase())
-        )
-      );
-      if (matchedEmployee) {
-        matchedEmployee = { ...matchedEmployee, email: emailLower };
-      }
-    }
-
-    // 3. If still not matched, check existing assets & subscriptions in localStorage
-    if (!matchedEmployee) {
-      let storedAssets = [];
-      try {
-        storedAssets = JSON.parse(localStorage.getItem('ao_assets') || '[]');
-      } catch (e) {}
-
-      let storedSubs = [];
-      try {
-        storedSubs = JSON.parse(localStorage.getItem('ao_subscriptions') || '[]');
-      } catch (e) {}
-
-      // Find an asset assigned to this email or candidate name
-      const assetMatch = storedAssets.find(a =>
-        (a.assignedEmail && a.assignedEmail.toLowerCase() === emailLower) ||
-        (a.assignedTo && cleanEmailName && (
-          a.assignedTo.toLowerCase() === cleanEmailName.toLowerCase() ||
-          a.assignedTo.toLowerCase().includes(cleanEmailName.toLowerCase()) ||
-          cleanEmailName.toLowerCase().includes(a.assignedTo.toLowerCase())
-        )) ||
-        (a.assignedUser && cleanEmailName && (
-          a.assignedUser.toLowerCase() === cleanEmailName.toLowerCase() ||
-          a.assignedUser.toLowerCase().includes(cleanEmailName.toLowerCase()) ||
-          cleanEmailName.toLowerCase().includes(a.assignedUser.toLowerCase())
-        ))
-      );
-
-      const subMatch = storedSubs.find(s =>
-        (s.assignedEmail && s.assignedEmail.toLowerCase() === emailLower) ||
-        (s.assignedEmployee && cleanEmailName && (
-          s.assignedEmployee.toLowerCase() === cleanEmailName.toLowerCase() ||
-          s.assignedEmployee.toLowerCase().includes(cleanEmailName.toLowerCase()) ||
-          cleanEmailName.toLowerCase().includes(s.assignedEmployee.toLowerCase())
-        )) ||
-        (s.owner && cleanEmailName && (
-          s.owner.toLowerCase() === cleanEmailName.toLowerCase() ||
-          s.owner.toLowerCase().includes(cleanEmailName.toLowerCase()) ||
-          cleanEmailName.toLowerCase().includes(s.owner.toLowerCase())
-        ))
-      );
-
-      // If an asset or subscription matches, OR if logging in with Employee master password
-      if (assetMatch || subMatch || enteredPassword === 'Employee@123') {
-        const resolvedName = assetMatch?.assignedTo || assetMatch?.assignedUser || subMatch?.assignedEmployee || cleanEmailName || 'Faculty / Staff Member';
-        const resolvedDept = assetMatch?.subBranch || assetMatch?.department || subMatch?.department || 'ISE';
-
-        // Auto-provision this employee profile
-        matchedEmployee = {
-          id: `USR-EMP-${Date.now().toString().slice(-4)}`,
-          name: resolvedName,
-          email: emailLower,
-          password: enteredPassword || 'Employee@123',
-          department: resolvedDept,
-          category: getCategoryForDept(resolvedDept),
-          subBranch: resolvedDept,
-          role: 'Employee',
-          title: 'Faculty / Staff Member',
-          avatar: resolvedName.charAt(0).toUpperCase() || 'E',
-          permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+    // =========================================================================
+    // 3. EMPLOYEE ROLE VERIFICATION
+    // =========================================================================
+    if (roleHint === 'Employee') {
+      // Cross-role boundary check 1: Is this user an Admin?
+      if (isKnownAdmin()) {
+        return {
+          success: false,
+          error: `Access Denied: ${enteredEmail} is an Administrator account. Please switch to the Admin tab.`
         };
+      }
 
-        // If asset matched, attach assignedEmail and update localStorage so reactive views isolate correctly
-        if (assetMatch) {
-          const updatedAssets = storedAssets.map(a =>
-            a.id === assetMatch.id ? { ...a, assignedEmail: emailLower, assignedTo: resolvedName, assignedUser: resolvedName } : a
-          );
-          localStorage.setItem('ao_assets', JSON.stringify(updatedAssets));
+      // Cross-role boundary check 2: Is this user an IT Manager?
+      if (isKnownITManager()) {
+        return {
+          success: false,
+          error: `Access Denied: ${enteredEmail} is an IT Manager account. Please switch to the IT Manager tab.`
+        };
+      }
+
+      // Find employee in registeredEmployees or defaults
+      let matchedEmployee = registeredEmployees.find(e => e.email?.toLowerCase() === emailLower);
+      if (!matchedEmployee) {
+        matchedEmployee = DEFAULT_EMPLOYEES.find(e => e.email?.toLowerCase() === emailLower);
+      }
+
+      // If not yet in list, check if created during asset/subscription assignments in localStorage
+      if (!matchedEmployee) {
+        let storedAssets = [];
+        try {
+          storedAssets = JSON.parse(localStorage.getItem('ao_assets') || '[]');
+        } catch (e) {}
+
+        let storedSubs = [];
+        try {
+          storedSubs = JSON.parse(localStorage.getItem('ao_subscriptions') || '[]');
+        } catch (e) {}
+
+        const assetMatch = storedAssets.find(a =>
+          a.assignedEmail && a.assignedEmail.toLowerCase() === emailLower
+        );
+        const subMatch = storedSubs.find(s =>
+          s.assignedEmail && s.assignedEmail.toLowerCase() === emailLower
+        );
+
+        if (assetMatch || subMatch) {
+          const resolvedName = assetMatch?.assignedTo || subMatch?.assignedEmployee || enteredEmail.split('@')[0];
+          const resolvedDept = assetMatch?.subBranch || subMatch?.department || 'ISE';
+          matchedEmployee = {
+            id: `USR-EMP-${Date.now().toString().slice(-4)}`,
+            name: resolvedName,
+            email: emailLower,
+            password: 'Employee@123',
+            department: resolvedDept,
+            category: getCategoryForDept(resolvedDept),
+            subBranch: resolvedDept,
+            role: 'Employee',
+            title: 'Faculty / Staff Member',
+            avatar: resolvedName.charAt(0).toUpperCase() || 'E',
+            permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+          };
+          const updatedList = [matchedEmployee, ...registeredEmployees.filter(e => e.email?.toLowerCase() !== emailLower)];
+          setRegisteredEmployees(updatedList);
+          localStorage.setItem('ao_registered_employees', JSON.stringify(updatedList));
+          broadcastEmployees(updatedList);
         }
-
-        // Save newly provisioned employee into registeredEmployees
-        const updatedList = [matchedEmployee, ...registeredEmployees.filter(e => e.email?.toLowerCase() !== emailLower)];
-        setRegisteredEmployees(updatedList);
-        localStorage.setItem('ao_registered_employees', JSON.stringify(updatedList));
-        broadcastEmployees(updatedList);
       }
-    }
 
-    if (matchedEmployee) {
-      if (matchedEmployee.password === enteredPassword || enteredPassword === 'Employee@123') {
-        setCurrentUser(matchedEmployee);
-
-        // Sync with backend API
-        api.post('/auth/login', { email: matchedEmployee.email, password: enteredPassword, roleHint: 'Employee' })
-          .then(res => {
-            if (res.ok && res.raw?.token) {
-              sessionStorage.setItem('assetorbit_session_token', res.raw.token);
-              localStorage.setItem('assetorbit_token', res.raw.token);
-            }
-          }).catch(() => {});
-
-        return { success: true, user: matchedEmployee };
-      } else {
-        return { success: false, error: 'Incorrect password for this employee account.' };
+      if (!matchedEmployee) {
+        return {
+          success: false,
+          error: `No employee account found for ${enteredEmail}. Please switch to the Sign Up tab to create your profile or check spelling.`
+        };
       }
-    }
 
-    // If role chosen was Employee and email not found
-    if (selectedRoleHint === 'Employee' || (!selectedRoleHint && enteredEmail.includes('@'))) {
-      return {
-        success: false,
-        error: 'Employee account not found for this email. Use Employee@123 or switch to the Sign Up tab to create your employee profile.'
-      };
+      // Verify Employee Password
+      const expectedPassword = matchedEmployee.password || 'Employee@123';
+      if (enteredPassword !== expectedPassword && enteredPassword !== 'Employee@123') {
+        return {
+          success: false,
+          error: 'Incorrect password for this employee account.'
+        };
+      }
+
+      // Validated Employee user session
+      setCurrentUser(matchedEmployee);
+
+      // Background backend sync
+      api.post('/auth/login', { email: matchedEmployee.email, password: enteredPassword, roleHint: 'Employee' })
+        .then(res => {
+          if (res.ok && res.raw?.token) {
+            sessionStorage.setItem('assetorbit_session_token', res.raw.token);
+            localStorage.setItem('assetorbit_token', res.raw.token);
+          }
+        }).catch(() => {});
+
+      return { success: true, user: matchedEmployee };
     }
 
     return {
       success: false,
-      error: 'Invalid credentials. Please verify your email and designated role password.'
+      error: 'Invalid login role specified.'
     };
   };
 
