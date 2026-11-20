@@ -213,6 +213,21 @@ export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset 
       notes: assignmentNotes
     }).catch(() => {});
 
+    api.post('/sync/mutation', {
+      type: 'ASSET_ASSIGN',
+      payload: {
+        id: targetAsset.id,
+        assignee: empName,
+        employeeName: empName,
+        employeeEmail: empEmail,
+        department: empDept,
+        location: deskLocation || targetAsset.location,
+        notes: assignmentNotes
+      },
+      actor: currentUser?.name || 'Admin',
+      role: currentUser?.role || 'Admin'
+    }).catch(() => {});
+
     // 4. Visibly change button to Assigned Successfully, then close modal smoothly
     setAssignedSuccess(true);
     setTimeout(() => {

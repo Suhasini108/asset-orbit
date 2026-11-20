@@ -544,6 +544,32 @@ export function AuthProvider({ children }) {
     localStorage.setItem('ao_registered_employees', JSON.stringify(registeredEmployees));
   }, [registeredEmployees]);
 
+  // Sync registered employees with server on mount & periodically
+  useEffect(() => {
+    const fetchEmployees = () => {
+      api.get('/auth/employees').then(res => {
+        if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+          setRegisteredEmployees(prev => {
+            const emailMap = new Map();
+            res.data.forEach(e => {
+              if (e.email) emailMap.set(e.email.toLowerCase(), e);
+            });
+            (prev || []).forEach(e => {
+              if (e.email && !emailMap.has(e.email.toLowerCase())) {
+                emailMap.set(e.email.toLowerCase(), e);
+              }
+            });
+            return Array.from(emailMap.values());
+          });
+        }
+      }).catch(() => {});
+    };
+
+    fetchEmployees();
+    const interval = setInterval(fetchEmployees, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Real-time synchronization across browser tabs and windows
   useEffect(() => {
     let channel = null;
@@ -657,7 +683,7 @@ export function AuthProvider({ children }) {
     broadcastEmployees(updated);
     setCurrentUser(newEmp);
 
-    // Sync with backend API to obtain server-signed JWT token
+    // Sync with backend API to obtain server-signed JWT token & sync with all laptops
     api.post('/auth/register', { name: cleanName, email: cleanEmail, department: dept, password })
       .then(res => {
         if (res.ok && res.raw?.token) {
@@ -666,6 +692,13 @@ export function AuthProvider({ children }) {
         }
       })
       .catch(() => {});
+
+    api.post('/sync/mutation', {
+      type: 'EMPLOYEE_REGISTER',
+      payload: { employee: newEmp },
+      actor: cleanName,
+      role: 'Employee'
+    }).catch(() => {});
 
     return { success: true, user: newEmp };
   };

@@ -221,6 +221,13 @@ export default function AssetsPage({ onOpenAddAsset, onSelectAsset, onReportIssu
         assignedEmail: '',
         statusChangeNote: `Unassigned and returned to available pool by ${currentUser?.name || 'Administrator'}`
       }, currentUser?.name || 'Administrator');
+      api.post(`/assets/${asset.id}/unassign`).catch(() => {});
+      api.post('/sync/mutation', {
+        type: 'ASSET_UNASSIGN',
+        payload: { id: asset.id },
+        actor: currentUser?.name || 'Administrator',
+        role: currentUser?.role || 'Admin'
+      }).catch(() => {});
     }
   };
 

@@ -14,6 +14,7 @@ import featureRoutes from "./routes/features.js";
 import notificationRoutes from "./routes/notifications.js";
 import { authenticateToken, requireRole } from "./middleware/auth.js";
 import { seedDemoData } from "./seedData.js";
+import syncStore from "./syncStore.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -74,6 +75,33 @@ app.get("/api/health", (_req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development"
   });
+});
+
+// Global Multi-Client Synchronization Endpoints
+app.get("/api/sync", (req, res) => {
+  const since = req.query.since;
+  const syncData = syncStore.getState(since);
+  res.json({ success: true, ...syncData });
+});
+
+app.post("/api/sync/mutation", (req, res) => {
+  const { type, payload, actor, role } = req.body || {};
+  const result = syncStore.applyMutation({ type, payload, actor, role });
+  res.json({ success: true, ...result });
+});
+
+app.post("/api/sync", (req, res) => {
+  const body = req.body || {};
+  if (body.type) {
+    const result = syncStore.applyMutation(body);
+    return res.json({ success: true, ...result });
+  }
+  if (body.assets) {
+    const result = syncStore.applyMutation({ type: "BULK_SYNC", payload: body });
+    return res.json({ success: true, ...result });
+  }
+  const syncData = syncStore.getState();
+  res.json({ success: true, ...syncData });
 });
 
 // Application Routes

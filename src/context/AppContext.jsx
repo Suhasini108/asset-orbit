@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import {
   INITIAL_CATEGORIES,
   INITIAL_VENDORS,
@@ -51,34 +51,15 @@ export function AppProvider({ children }) {
 
   const [assets, setAssets] = useState(() => {
     const saved = localStorage.getItem('ao_assets');
-    let baseList = INITIAL_ASSETS;
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingIds = new Set(parsed.map(a => a.id));
-          const missing = INITIAL_ASSETS.filter(a => !existingIds.has(a.id));
-          baseList = [...parsed, ...missing];
+          return parsed;
         }
       } catch (e) {}
     }
-    return baseList.map(a => {
-      if (a.id === 'AST-ISE-039') {
-        return {
-          ...a,
-          status: 'Assigned',
-          assignedTo: (a.assignedTo && a.assignedTo !== 'Unassigned') ? a.assignedTo : 'Sachin Joshi',
-          assignedUser: (a.assignedUser && a.assignedUser !== 'Unassigned') ? a.assignedUser : 'Sachin Joshi',
-          assignedEmail: a.assignedEmail || 'sachin.joshi@gmail.com',
-          location: a.location || 'ISE lab 2',
-          labRoom: a.labRoom || 'ISE lab 2'
-        };
-      }
-      return {
-        ...a,
-        status: (a.status === 'Lost' || a.status === 'Stolen') ? 'In Repair' : a.status
-      };
-    });
+    return INITIAL_ASSETS;
   });
 
   const [subscriptions, setSubscriptions] = useState(() => {
@@ -87,9 +68,7 @@ export function AppProvider({ children }) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingIds = new Set(parsed.map(s => s.id));
-          const missing = INITIAL_SUBSCRIPTIONS.filter(s => !existingIds.has(s.id));
-          return [...parsed, ...missing];
+          return parsed;
         }
       } catch (e) {}
     }
@@ -102,9 +81,7 @@ export function AppProvider({ children }) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingIds = new Set(parsed.map(t => t.id));
-          const missing = INITIAL_TICKETS.filter(t => !existingIds.has(t.id));
-          return [...parsed, ...missing];
+          return parsed;
         }
       } catch (e) {}
     }
@@ -249,25 +226,68 @@ export function AppProvider({ children }) {
   useEffect(() => { localStorage.setItem('ao_warranty_claims', JSON.stringify(warrantyClaims)); }, [warrantyClaims]);
   useEffect(() => { localStorage.setItem('ao_replacements', JSON.stringify(replacementRequests)); }, [replacementRequests]);
 
-  // Initial Background API Fetch (syncs with MongoDB if online)
+  // --- GLOBAL MULTI-CLIENT SYNCHRONIZATION ENGINE ---
+  const lastSyncTimeRef = useRef(0);
+
+  const dispatchMutation = (type, payload = {}, actor = 'Admin') => {
+    try {
+      api.post('/sync/mutation', {
+        type,
+        payload,
+        actor
+      }).then(res => {
+        if (res.ok && res.raw?.lastModified) {
+          lastSyncTimeRef.current = res.raw.lastModified;
+        }
+      }).catch(() => {});
+    } catch (e) {}
+  };
+
+  const syncWithServer = (force = false) => {
+    const url = force ? '/sync' : `/sync?since=${lastSyncTimeRef.current}`;
+    api.get(url).then(res => {
+      if (res.ok && res.raw) {
+        if (res.raw.upToDate) return;
+        if (Array.isArray(res.raw.assets)) {
+          setAssets(res.raw.assets);
+        }
+        if (Array.isArray(res.raw.subscriptions)) {
+          setSubscriptions(res.raw.subscriptions);
+        }
+        if (Array.isArray(res.raw.tickets)) {
+          setTickets(res.raw.tickets);
+        }
+        if (res.raw.lastModified) {
+          lastSyncTimeRef.current = res.raw.lastModified;
+        }
+      }
+    }).catch(() => {});
+  };
+
+  // Continuous background synchronization across all connected laptops
   useEffect(() => {
-    api.get('/assets').then(res => {
-      if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
-        setAssets(res.data);
-      }
-    }).catch(() => {});
+    // 1. Initial immediate sync on mount
+    syncWithServer(true);
 
-    api.get('/subscriptions').then(res => {
-      if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
-        setSubscriptions(res.data);
-      }
-    }).catch(() => {});
+    // 2. High-frequency polling every 2.5 seconds
+    const interval = setInterval(() => {
+      syncWithServer(false);
+    }, 2500);
 
-    api.get('/tickets').then(res => {
-      if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
-        setTickets(res.data);
-      }
-    }).catch(() => {});
+    // 3. Instant sync on tab switch or focus
+    const handleFocus = () => syncWithServer(false);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') syncWithServer(false);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
   useEffect(() => { localStorage.setItem('ao_active_audit', JSON.stringify(activeAuditSession)); }, [activeAuditSession]);
   useEffect(() => { localStorage.setItem('ao_platform_sub', JSON.stringify(platformSubscription)); }, [platformSubscription]);
@@ -330,7 +350,12 @@ export function AppProvider({ children }) {
       newAssets.push(singleAsset);
     }
 
-    setAssets(prev => [...newAssets, ...prev]);
+    setAssets(prev => {
+      const updated = [...newAssets, ...prev];
+      broadcastSync('SYNC_ASSETS', updated);
+      return updated;
+    });
+    dispatchMutation('ASSET_ADD', { assets: newAssets }, userName);
     logActivity(userName, num > 1 ? `Batch Added ${num} Assets` : 'Added Asset', `${assetData.name} (${newAssets.map(a => a.id).join(', ')})`);
     addNotification({
       title: num > 1 ? `${num} New Assets Added (Batch)` : 'New Asset Added',
@@ -363,6 +388,7 @@ export function AppProvider({ children }) {
       broadcastSync('SYNC_ASSETS', nextAssets);
       return nextAssets;
     });
+    dispatchMutation('ASSET_UPDATE', { id, updates }, userName);
     logActivity(userName, 'Updated Asset', id);
 
     // If marked as InRepair or Faulty, automatically dispatch real email alert to Admin & IT Manager
@@ -386,7 +412,13 @@ export function AppProvider({ children }) {
   };
 
   const deleteAsset = (id, userName = 'Admin') => {
-    setAssets(prev => prev.filter(a => a.id !== id));
+    setAssets(prev => {
+      const remaining = prev.filter(a => a.id !== id);
+      broadcastSync('SYNC_ASSETS', remaining);
+      return remaining;
+    });
+    api.delete(`/assets/${id}`).catch(() => {});
+    dispatchMutation('ASSET_DELETE', { id }, userName);
     logActivity(userName, 'Deleted Asset', id);
   };
 
@@ -423,7 +455,12 @@ export function AppProvider({ children }) {
       ]
     }));
 
-    setAssets(prev => [...formatted, ...prev]);
+    setAssets(prev => {
+      const updated = [...formatted, ...prev];
+      broadcastSync('SYNC_ASSETS', updated);
+      return updated;
+    });
+    dispatchMutation('ASSET_ADD', { assets: formatted }, userName);
     logActivity(userName, `Imported ${formatted.length} Assets via CSV`, 'Bulk Import Wizard');
     addNotification({
       title: 'Bulk Asset Import Complete',
@@ -445,7 +482,12 @@ export function AppProvider({ children }) {
         { year: new Date().getFullYear().toString(), cost: subData.cost, note: 'Initial agreement' }
       ]
     };
-    setSubscriptions(prev => [newSub, ...prev]);
+    setSubscriptions(prev => {
+      const updated = [newSub, ...prev];
+      broadcastSync('SYNC_SUBSCRIPTIONS', updated);
+      return updated;
+    });
+    dispatchMutation('SUBSCRIPTION_ADD', { subscription: newSub }, userName);
     logActivity(userName, 'Added Software Subscription', subData.softwareName || subData.name);
   };
 
@@ -459,7 +501,12 @@ export function AppProvider({ children }) {
         { year: new Date().getFullYear().toString(), cost: subData.cost, note: 'Initial agreement' }
       ]
     };
-    setSubscriptions(prev => [newSub, ...prev]);
+    setSubscriptions(prev => {
+      const updated = [newSub, ...prev];
+      broadcastSync('SYNC_SUBSCRIPTIONS', updated);
+      return updated;
+    });
+    dispatchMutation('SUBSCRIPTION_ADD', { subscription: newSub }, userName);
     logActivity(userName, `Subscribed to ${subData.softwareName || subData.name} (${subData.planName || subData.plan})`, `Cost: ₹${subData.cost}/${subData.billingCycle}`);
     addNotification({
       title: `Subscription Activated: ${subData.softwareName || subData.name}`,
@@ -527,11 +574,18 @@ export function AppProvider({ children }) {
       broadcastSync('SYNC_SUBSCRIPTIONS', nextSubs);
       return nextSubs;
     });
+    dispatchMutation('SUBSCRIPTION_UPDATE', { id, updates }, userName);
     logActivity(userName, 'Updated Subscription', id);
   };
 
   const deleteSubscription = (id, userName = 'Admin') => {
-    setSubscriptions(prev => prev.filter(s => s.id !== id));
+    setSubscriptions(prev => {
+      const remaining = prev.filter(s => s.id !== id);
+      broadcastSync('SYNC_SUBSCRIPTIONS', remaining);
+      return remaining;
+    });
+    api.delete(`/subscriptions/${id}`).catch(() => {});
+    dispatchMutation('SUBSCRIPTION_DELETE', { id }, userName);
     logActivity(userName, 'Deleted Subscription', id);
   };
 

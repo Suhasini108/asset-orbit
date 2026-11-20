@@ -1,8 +1,10 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import Subscription from "../models/Subscription.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { writeAudit } from "../utils/audit.js";
 import { authenticateToken, requireRole } from "../middleware/auth.js";
+import syncStore from "../syncStore.js";
 
 const router = Router();
 
@@ -12,25 +14,45 @@ const router = Router();
  */
 router.get("/", authenticateToken, asyncHandler(async (req, res) => {
   const { search = "", status = "", department = "", category = "" } = req.query;
-  const filter = {};
-  if (status) filter.status = status;
-  if (department) filter.department = department;
-  if (category) filter.category = category;
 
-  if (search.trim()) {
-    const rx = new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-    filter.$or = [{ name: rx }, { vendor: rx }, { plan: rx }, { owner: rx }, { department: rx }];
+  if (mongoose.connection.readyState !== 1) {
+    const list = syncStore.getSubscriptions({ search, status, department, category });
+    return res.json({ success: true, count: list.length, data: list });
   }
 
-  const subscriptions = await Subscription.find(filter).sort({ renewal: 1, createdAt: -1 }).lean();
-  res.json({ success: true, count: subscriptions.length, data: subscriptions });
+  try {
+    const filter = {};
+    if (status) filter.status = status;
+    if (department) filter.department = department;
+    if (category) filter.category = category;
+
+    if (search.trim()) {
+      const rx = new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [{ name: rx }, { vendor: rx }, { plan: rx }, { owner: rx }, { department: rx }];
+    }
+
+    const subscriptions = await Subscription.find(filter).sort({ renewal: 1, createdAt: -1 }).lean();
+    res.json({ success: true, count: subscriptions.length, data: subscriptions });
+  } catch (err) {
+    const list = syncStore.getSubscriptions({ search, status, department, category });
+    res.json({ success: true, count: list.length, data: list });
+  }
 }));
 
 /**
  * GET /api/subscriptions/:id
  */
 router.get("/:id", authenticateToken, asyncHandler(async (req, res) => {
-  const sub = await Subscription.findById(req.params.id);
+  const targetId = req.params.id;
+  let sub = null;
+  if (mongoose.connection.readyState === 1) {
+    try {
+      sub = await Subscription.findById(targetId);
+    } catch (e) {}
+  }
+  if (!sub) {
+    sub = syncStore.state.subscriptions.find(s => s.id === targetId || s._id === targetId);
+  }
   if (!sub) return res.status(404).json({ success: false, message: "Subscription not found." });
   res.json({ success: true, data: sub });
 }));
@@ -40,16 +62,33 @@ router.get("/:id", authenticateToken, asyncHandler(async (req, res) => {
  * Add new software subscription (Admin & IT Manager only)
  */
 router.post("/", authenticateToken, requireRole(["Admin", "IT Manager"]), asyncHandler(async (req, res) => {
-  const newSub = await Subscription.create(req.body);
+  const payload = req.body;
+  if (!payload.id) {
+    payload.id = `SUB-${Date.now().toString().slice(-6)}`;
+  }
+
+  syncStore.applyMutation({
+    type: "SUBSCRIPTION_ADD",
+    payload: { subscription: payload },
+    actor: req.user.name,
+    role: req.user.role
+  });
+
+  let newSub = payload;
+  if (mongoose.connection.readyState === 1) {
+    try {
+      newSub = await Subscription.create(payload);
+    } catch (e) {}
+  }
 
   await writeAudit({
     action: "SUBSCRIPTION_CREATED",
     entityType: "Subscription",
-    entityId: String(newSub._id),
+    entityId: String(newSub.id || newSub._id),
     entityName: newSub.name,
     actor: req.user.name,
     role: req.user.role,
-    newValues: newSub.toObject(),
+    newValues: newSub,
     details: `Added subscription ${newSub.name} (${newSub.plan}) at ₹${newSub.cost}`
   });
 
@@ -61,46 +100,42 @@ router.post("/", authenticateToken, requireRole(["Admin", "IT Manager"]), asyncH
  * Update subscription (Admin & IT Manager only)
  */
 router.put("/:id", authenticateToken, requireRole(["Admin", "IT Manager"]), asyncHandler(async (req, res) => {
-  if (mongoose.connection.readyState !== 1) {
-    return res.json({
-      success: true,
-      offline: true,
-      data: { id: req.params.id, ...req.body },
-      message: `Subscription ${req.params.id} updated.`
-    });
+  const targetId = req.params.id;
+
+  syncStore.applyMutation({
+    type: "SUBSCRIPTION_UPDATE",
+    payload: { id: targetId, updates: req.body },
+    actor: req.user.name,
+    role: req.user.role
+  });
+
+  let existing = null;
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const isObjectId = mongoose.isValidObjectId(targetId);
+      existing = isObjectId
+        ? await Subscription.findById(targetId)
+        : await Subscription.findOne({ $or: [{ id: targetId }, { name: targetId }] });
+      if (existing) {
+        Object.assign(existing, req.body);
+        await existing.save();
+      }
+    } catch (e) {}
   }
 
-  const isObjectId = mongoose.isValidObjectId(req.params.id);
-  const existing = isObjectId
-    ? await Subscription.findById(req.params.id)
-    : await Subscription.findOne({ $or: [{ id: req.params.id }, { name: req.params.id }] });
-
-  if (!existing) {
-    return res.json({
-      success: true,
-      offline: true,
-      data: { id: req.params.id, ...req.body },
-      message: "Subscription updated locally."
-    });
-  }
-
-  const prev = existing.toObject();
-  Object.assign(existing, req.body);
-  await existing.save();
+  const updatedSub = syncStore.state.subscriptions.find(s => s.id === targetId) || existing || { id: targetId, ...req.body };
 
   await writeAudit({
     action: "SUBSCRIPTION_UPDATED",
     entityType: "Subscription",
-    entityId: String(existing._id),
-    entityName: existing.name,
+    entityId: String(targetId),
+    entityName: updatedSub.name || targetId,
     actor: req.user.name,
     role: req.user.role,
-    previousValues: prev,
-    newValues: existing.toObject(),
-    details: `Updated subscription attributes for ${existing.name}`
+    details: `Updated subscription attributes for ${updatedSub.name}`
   });
 
-  res.json({ success: true, data: existing });
+  res.json({ success: true, data: updatedSub });
 }));
 
 /**
@@ -108,22 +143,38 @@ router.put("/:id", authenticateToken, requireRole(["Admin", "IT Manager"]), asyn
  * Delete subscription (Admin full authority only)
  */
 router.delete("/:id", authenticateToken, requireRole(["Admin"]), asyncHandler(async (req, res) => {
-  const existing = await Subscription.findById(req.params.id);
-  if (!existing) return res.status(404).json({ success: false, message: "Subscription not found." });
+  const targetId = req.params.id;
+  const existing = syncStore.state.subscriptions.find(s => s.id === targetId || s._id === targetId);
 
-  await Subscription.findByIdAndDelete(req.params.id);
+  syncStore.applyMutation({
+    type: "SUBSCRIPTION_DELETE",
+    payload: { id: targetId },
+    actor: req.user.name,
+    role: req.user.role
+  });
+
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const isObjectId = mongoose.isValidObjectId(targetId);
+      if (isObjectId) {
+        await Subscription.findByIdAndDelete(targetId);
+      } else {
+        await Subscription.findOneAndDelete({ $or: [{ id: targetId }, { name: targetId }] });
+      }
+    } catch (e) {}
+  }
 
   await writeAudit({
     action: "SUBSCRIPTION_DELETED",
     entityType: "Subscription",
-    entityId: String(existing._id),
-    entityName: existing.name,
+    entityId: targetId,
+    entityName: existing?.name || targetId,
     actor: req.user.name,
     role: req.user.role,
-    details: `Subscription permanently deleted: ${existing.name}`
+    details: `Subscription permanently deleted: ${existing?.name || targetId}`
   });
 
-  res.json({ success: true, message: `Subscription ${existing.name} deleted successfully.` });
+  res.json({ success: true, message: `Subscription ${existing?.name || targetId} deleted successfully.` });
 }));
 
 /**
@@ -131,34 +182,58 @@ router.delete("/:id", authenticateToken, requireRole(["Admin"]), asyncHandler(as
  * Process renewal
  */
 router.post("/:id/renew", authenticateToken, requireRole(["Admin", "IT Manager"]), asyncHandler(async (req, res) => {
-  const sub = await Subscription.findById(req.params.id);
-  if (!sub) return res.status(404).json({ success: false, message: "Subscription not found." });
+  const targetId = req.params.id;
+  let sub = syncStore.state.subscriptions.find(s => s.id === targetId);
 
-  const currentRenewal = new Date(sub.renewal || Date.now());
+  const currentRenewal = new Date(sub?.renewal || sub?.renewalDate || Date.now());
   const nextRenewal = new Date(currentRenewal);
-  if (sub.billing === "Yearly" || sub.billingCycle === "Yearly") {
+  if (sub?.billing === "Yearly" || sub?.billingCycle === "Yearly") {
     nextRenewal.setFullYear(nextRenewal.getFullYear() + 1);
   } else {
     nextRenewal.setMonth(nextRenewal.getMonth() + 1);
   }
 
-  sub.renewal = nextRenewal;
-  sub.renewalDate = nextRenewal;
-  sub.status = "Active";
-  sub.paid = "yes";
-  await sub.save();
+  syncStore.applyMutation({
+    type: "SUBSCRIPTION_UPDATE",
+    payload: {
+      id: targetId,
+      updates: {
+        renewal: nextRenewal,
+        renewalDate: nextRenewal.toISOString().slice(0, 10),
+        status: "Active",
+        paid: "yes"
+      }
+    },
+    actor: req.user.name,
+    role: req.user.role
+  });
+
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const mongoSub = await Subscription.findById(targetId);
+      if (mongoSub) {
+        mongoSub.renewal = nextRenewal;
+        mongoSub.renewalDate = nextRenewal;
+        mongoSub.status = "Active";
+        mongoSub.paid = "yes";
+        await mongoSub.save();
+      }
+    } catch (e) {}
+  }
+
+  const updatedSub = syncStore.state.subscriptions.find(s => s.id === targetId);
 
   await writeAudit({
     action: "SUBSCRIPTION_RENEWED",
     entityType: "Subscription",
-    entityId: String(sub._id),
-    entityName: sub.name,
+    entityId: targetId,
+    entityName: updatedSub?.name || targetId,
     actor: req.user.name,
     role: req.user.role,
-    details: `Renewed ${sub.name} to ${nextRenewal.toISOString().split("T")[0]}`
+    details: `Renewed ${updatedSub?.name} to ${nextRenewal.toISOString().split("T")[0]}`
   });
 
-  res.json({ success: true, data: sub });
+  res.json({ success: true, data: updatedSub });
 }));
 
 export default router;

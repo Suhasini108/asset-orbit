@@ -1,9 +1,11 @@
 import { Router } from "express";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import User from "../models/User.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { authenticateToken } from "../middleware/auth.js";
 import { writeAudit } from "../utils/audit.js";
+import syncStore from "../syncStore.js";
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "assetorbit_default_jwt_secret_dev_2026";
@@ -11,8 +13,18 @@ const JWT_SECRET = process.env.JWT_SECRET || "assetorbit_default_jwt_secret_dev_
 // Designated passwords matching requirements
 const DESIGNATED_PASSWORDS = {
   ADMIN: "Admin@123",
-  IT_MANAGER: "Manager@123"
+  IT_MANAGER: "Manager@123",
+  EMPLOYEE: "Employee@123"
 };
+
+/**
+ * GET /api/auth/employees
+ * Returns registered employees from canonical syncStore
+ */
+router.get("/employees", asyncHandler(async (_req, res) => {
+  const employees = syncStore.getEmployees();
+  res.json({ success: true, count: employees.length, data: employees });
+}));
 
 /**
  * POST /api/auth/register
@@ -27,30 +39,47 @@ router.post("/register", asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "Name, email, and password are required." });
   }
 
-  const existing = await User.findOne({ email: cleanEmail });
-  if (existing) {
+  // Check if exists in syncStore
+  const existingInStore = syncStore.findEmployee(cleanEmail);
+  if (existingInStore) {
     return res.status(409).json({ success: false, message: "An account with this email already exists." });
   }
 
-  const newUser = await User.create({
+  const newEmp = {
+    id: `USR-EMP-${Date.now().toString().slice(-4)}`,
     name: cleanName,
     email: cleanEmail,
-    password, // Hashed automatically by pre-save hook
-    role: "Employee", // Public signup is restricted to Employee role only
+    password,
+    role: "Employee",
     department: department || "Engineering Labs (CSE / ISE)",
+    category: "Engineering",
+    subBranch: department || "CSE",
     title: "Faculty / Staff Member",
     avatar: cleanName.charAt(0).toUpperCase() || "E",
     permissions: ["tickets:create", "assets:view_assigned", "loaners:request"]
+  };
+
+  syncStore.applyMutation({
+    type: "EMPLOYEE_REGISTER",
+    payload: { employee: newEmp },
+    actor: cleanName,
+    role: "Employee"
   });
+
+  if (mongoose.connection.readyState === 1) {
+    try {
+      await User.create(newEmp);
+    } catch (e) {}
+  }
 
   const token = jwt.sign(
     {
-      id: newUser._id,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      department: newUser.department,
-      permissions: newUser.permissions
+      id: newEmp.id,
+      name: newEmp.name,
+      email: newEmp.email,
+      role: newEmp.role,
+      department: newEmp.department,
+      permissions: newEmp.permissions
     },
     JWT_SECRET,
     { expiresIn: "7d" }
@@ -59,9 +88,9 @@ router.post("/register", asyncHandler(async (req, res) => {
   await writeAudit({
     action: "EMPLOYEE_REGISTERED",
     entityType: "User",
-    entityId: String(newUser._id),
-    entityName: newUser.name,
-    actor: newUser.name,
+    entityId: newEmp.id,
+    entityName: newEmp.name,
+    actor: newEmp.name,
     role: "Employee",
     details: `New employee account created for ${cleanEmail}`
   });
@@ -71,13 +100,13 @@ router.post("/register", asyncHandler(async (req, res) => {
     message: "Registration successful.",
     token,
     user: {
-      id: newUser._id,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      department: newUser.department,
-      permissions: newUser.permissions,
-      avatar: newUser.avatar
+      id: newEmp.id,
+      name: newEmp.name,
+      email: newEmp.email,
+      role: newEmp.role,
+      department: newEmp.department,
+      permissions: newEmp.permissions,
+      avatar: newEmp.avatar
     }
   });
 }));
@@ -95,26 +124,27 @@ router.post("/login", asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "Password is required." });
   }
 
-  // Real-World Strict Role Verification
   let user = null;
 
   if (roleHint === "Admin") {
     // Cross-role boundary check: Employee cannot log in as Admin
-    const existing = await User.findOne({ email: cleanEmail });
-    if (existing && existing.role === "Employee") {
+    const empMatch = syncStore.findEmployee(cleanEmail);
+    if (empMatch) {
       return res.status(403).json({
         success: false,
         message: `Access Denied: ${cleanEmail} is registered as an Employee. Please switch to the Employee tab.`
       });
     }
-    if (existing && existing.role === "IT Manager") {
+
+    const isITManagerEmail = cleanEmail === "itmanager@assetorbit.edu" || cleanEmail === "itmanager@gmail.com";
+    if (isITManagerEmail) {
       return res.status(403).json({
         success: false,
         message: `Access Denied: ${cleanEmail} is registered as an IT Manager. Please switch to the IT Manager tab.`
       });
     }
 
-    const isAdminEmail = cleanEmail === "admin@assetorbit.edu" || cleanEmail === "suhasinimugganavar@gmail.com" || (existing && existing.role === "Admin");
+    const isAdminEmail = cleanEmail === "admin@assetorbit.edu" || cleanEmail === "suhasinimugganavar@gmail.com";
     if (!isAdminEmail) {
       return res.status(403).json({
         success: false,
@@ -126,37 +156,36 @@ router.post("/login", asyncHandler(async (req, res) => {
       return res.status(401).json({ success: false, message: "Incorrect password for Administrator account." });
     }
 
-    user = existing;
-    if (!user) {
-      const defaultName = cleanEmail === "suhasinimugganavar@gmail.com" ? "Suhasinimugganavar (Admin)" : "Workspace Admin";
-      user = await User.create({
-        name: defaultName,
-        email: cleanEmail,
-        password: cleanPassword,
-        role: "Admin",
-        department: "Central Administration",
-        title: "Workspace Administrator",
-        permissions: ["all"],
-        avatar: "A"
-      });
-    }
+    const defaultName = cleanEmail === "suhasinimugganavar@gmail.com" ? "Suhasinimugganavar (Admin)" : "Workspace Admin";
+    user = {
+      id: "USR-001",
+      name: defaultName,
+      email: cleanEmail,
+      role: "Admin",
+      department: "Central Administration",
+      title: "Workspace Administrator",
+      permissions: ["all"],
+      avatar: "A"
+    };
   } else if (roleHint === "IT Manager") {
     // Cross-role boundary check: Employee/Admin cannot log in as IT Manager
-    const existing = await User.findOne({ email: cleanEmail });
-    if (existing && existing.role === "Employee") {
+    const empMatch = syncStore.findEmployee(cleanEmail);
+    if (empMatch) {
       return res.status(403).json({
         success: false,
         message: `Access Denied: ${cleanEmail} is registered as an Employee. Please switch to the Employee tab.`
       });
     }
-    if (existing && existing.role === "Admin") {
+
+    const isAdminEmail = cleanEmail === "admin@assetorbit.edu" || cleanEmail === "suhasinimugganavar@gmail.com";
+    if (isAdminEmail) {
       return res.status(403).json({
         success: false,
         message: `Access Denied: ${cleanEmail} is registered as an Administrator. Please switch to the Admin tab.`
       });
     }
 
-    const isITManagerEmail = cleanEmail === "itmanager@assetorbit.edu" || cleanEmail === "itmanager@gmail.com" || (existing && existing.role === "IT Manager");
+    const isITManagerEmail = cleanEmail === "itmanager@assetorbit.edu" || cleanEmail === "itmanager@gmail.com";
     if (!isITManagerEmail) {
       return res.status(403).json({
         success: false,
@@ -168,35 +197,38 @@ router.post("/login", asyncHandler(async (req, res) => {
       return res.status(401).json({ success: false, message: "Incorrect password for IT Manager account." });
     }
 
-    user = existing;
-    if (!user) {
-      user = await User.create({
-        name: "Kiran V",
-        email: cleanEmail,
-        password: cleanPassword,
-        role: "IT Manager",
-        department: "IT Operations & Campus Labs",
-        title: "IT Operations Lead",
-        permissions: ["assets:write", "assets:edit", "subscriptions:write", "subscriptions:edit", "tickets:resolve", "tickets:approve"],
-        avatar: "K"
-      });
-    }
+    user = {
+      id: "USR-002",
+      name: "Kiran V",
+      email: cleanEmail,
+      role: "IT Manager",
+      department: "IT Operations & Campus Labs",
+      title: "IT Operations Lead",
+      permissions: ["assets:write", "assets:edit", "subscriptions:write", "subscriptions:edit", "tickets:resolve", "tickets:approve"],
+      avatar: "K"
+    };
   } else {
     // Employee Role Verification
-    user = await User.findOne({ email: cleanEmail });
-    if (user && user.role === "Admin") {
+    const isAdminEmail = cleanEmail === "admin@assetorbit.edu" || cleanEmail === "suhasinimugganavar@gmail.com";
+    if (isAdminEmail) {
       return res.status(403).json({
         success: false,
         message: `Access Denied: ${cleanEmail} is an Administrator account. Please switch to the Admin tab.`
       });
     }
-    if (user && user.role === "IT Manager") {
+
+    const isITManagerEmail = cleanEmail === "itmanager@assetorbit.edu" || cleanEmail === "itmanager@gmail.com";
+    if (isITManagerEmail) {
       return res.status(403).json({
         success: false,
         message: `Access Denied: ${cleanEmail} is an IT Manager account. Please switch to the IT Manager tab.`
       });
     }
-    if (!user && (cleanPassword === "Employee@123" || cleanPassword === "Employee@1234")) {
+
+    // Check syncStore for employee
+    let emp = syncStore.findEmployee(cleanEmail);
+
+    if (!emp && (cleanPassword === "Employee@123" || cleanPassword === "Employee@1234")) {
       const cleanName = cleanEmail.includes("@")
         ? cleanEmail.split("@")[0]
             .replace(/[._\-+]/g, " ")
@@ -205,35 +237,46 @@ router.post("/login", asyncHandler(async (req, res) => {
             .map(w => w.charAt(0).toUpperCase() + w.slice(1))
             .join(" ")
         : "Faculty / Staff Member";
-      user = await User.create({
+
+      emp = {
+        id: `USR-EMP-${Date.now().toString().slice(-4)}`,
         name: cleanName,
         email: cleanEmail,
         password: cleanPassword,
         role: "Employee",
-        department: "ISE",
+        department: "Engineering",
         title: "Faculty / Staff Member",
         avatar: cleanName.charAt(0).toUpperCase() || "E",
         permissions: ["tickets:create", "assets:view_assigned", "loaners:request"]
+      };
+
+      syncStore.applyMutation({
+        type: "EMPLOYEE_REGISTER",
+        payload: { employee: emp },
+        actor: cleanName,
+        role: "Employee"
       });
     }
 
-    if (!user) {
+    if (!emp) {
       return res.status(404).json({
         success: false,
         message: `No employee account found for ${cleanEmail}. Please switch to Sign Up to create your profile.`
       });
     }
 
-    const isMatch = (cleanPassword === "Employee@123") || (await user.comparePassword(cleanPassword));
+    const isMatch = (cleanPassword === "Employee@123" || cleanPassword === emp.password);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: "Incorrect password for employee account." });
     }
+
+    user = emp;
   }
 
   // Issue Cryptographically Signed JWT Token
   const token = jwt.sign(
     {
-      id: user._id,
+      id: user.id || user._id,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -247,7 +290,7 @@ router.post("/login", asyncHandler(async (req, res) => {
   await writeAudit({
     action: "USER_LOGIN",
     entityType: "User",
-    entityId: String(user._id),
+    entityId: String(user.id || user._id),
     entityName: user.name,
     actor: user.name,
     role: user.role,
@@ -258,7 +301,7 @@ router.post("/login", asyncHandler(async (req, res) => {
     success: true,
     token,
     user: {
-      id: user._id,
+      id: user.id || user._id,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -274,11 +317,10 @@ router.post("/login", asyncHandler(async (req, res) => {
  * Returns current authenticated user session
  */
 router.get("/me", authenticateToken, asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id).select("-password");
-  if (!user) {
-    return res.status(404).json({ success: false, message: "User account no longer found." });
+  if (req.user) {
+    return res.json({ success: true, user: req.user });
   }
-  res.json({ success: true, user });
+  res.status(404).json({ success: false, message: "User account no longer found." });
 }));
 
 export default router;
