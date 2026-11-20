@@ -760,13 +760,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder={
-                      selectedRole === 'Admin'
-                        ? 'e.g. admin@assetorbit.edu or suhasinimugganavar@gmail.com'
-                        : selectedRole === 'IT Manager'
-                        ? 'e.g. itmanager@assetorbit.edu'
-                        : 'e.g. sachin.joshi@gmail.com or sneha.rao@college.edu'
-                    }
+                    placeholder="name@assetorbit.edu"
                     className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-[#E5EAE5] text-xs text-[#172D27] focus:outline-none focus:border-[#315F50] shadow-xs"
                   />
                 </div>
@@ -784,13 +778,7 @@ export default function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder={
-                      selectedRole === 'Admin'
-                        ? 'Enter Admin password (Admin@123)'
-                        : selectedRole === 'IT Manager'
-                        ? 'Enter IT Manager password (Manager@123)'
-                        : 'Enter Employee password (Employee@123)'
-                    }
+                    placeholder="Enter password"
                     className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-white border border-[#E5EAE5] text-xs text-[#172D27] focus:outline-none focus:border-[#315F50] shadow-xs"
                   />
                   <button
@@ -801,24 +789,6 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {selectedRole === 'Admin' && (
-                  <p className="text-[11px] text-[#718078] mt-1.5 flex items-center justify-between">
-                    <span>🔑 Default Admin: <strong className="text-[#315F50]">admin@assetorbit.edu</strong></span>
-                    <span>Password: <strong className="text-[#315F50]">Admin@123</strong></span>
-                  </p>
-                )}
-                {selectedRole === 'IT Manager' && (
-                  <p className="text-[11px] text-[#718078] mt-1.5 flex items-center justify-between">
-                    <span>🔑 Default IT Manager: <strong className="text-[#315F50]">itmanager@assetorbit.edu</strong></span>
-                    <span>Password: <strong className="text-[#315F50]">Manager@123</strong></span>
-                  </p>
-                )}
-                {selectedRole === 'Employee' && (
-                  <p className="text-[11px] text-[#718078] mt-1.5 flex items-center justify-between">
-                    <span>🔑 Faculty / Staff Employee Password:</span>
-                    <strong className="text-[#315F50]">Employee@123</strong>
-                  </p>
-                )}
               </div>
 
               {/* Remember Me and Forgot Password */}
