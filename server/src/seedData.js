@@ -50,6 +50,16 @@ export async function seedDemoData() {
         avatar: "S"
       },
       {
+        name: "Sachin Joshi",
+        email: "sachin.joshi@gmail.com",
+        password: "Employee@123",
+        role: "Employee",
+        department: "ISE",
+        title: "Assistant Professor & Lab In-Charge",
+        permissions: ["tickets:create", "assets:view_assigned", "loaners:request"],
+        avatar: "S"
+      },
+      {
         name: "Dr. Rajesh Hegde",
         email: "rajesh.hegde@college.edu",
         password: "Employee@123",
@@ -213,7 +223,8 @@ export async function seedDemoData() {
       { tag: "AST-ISE-035", name: "APC make UPS – Capacity : 1.5 KVA Model No. BR1500G", type: "UPS", quantity: 5, workingUnits: 5, faultyUnits: 0, repaired: "No", healthStatus: "Working", value: 17500, cost: 17500, location: "ISE Lab 2 Backup Rack", labRoom: "ISE Lab 2", status: "Available", department: "ISE", subBranch: "ISE" },
       { tag: "AST-ISE-036", name: "UPS- Make : APC Capacity 700 VA", type: "UPS", quantity: 4, workingUnits: 4, faultyUnits: 0, repaired: "No", healthStatus: "Working", value: 5800, cost: 5800, location: "ISE Faculty Cabins", labRoom: "Workroom", status: "Available", department: "ISE", subBranch: "ISE" },
       { tag: "AST-ISE-037", name: "UPS- Make : APC Backups 600 VA (Active)", type: "UPS", quantity: 2, workingUnits: 2, faultyUnits: 0, repaired: "No", healthStatus: "Working", value: 4600, cost: 4600, location: "ISE Department Office", labRoom: "Office", status: "Available", department: "ISE", subBranch: "ISE" },
-      { tag: "AST-ISE-038", name: "UPS - Make : APC – 10 KVA Online Rack", type: "UPS", quantity: 4, workingUnits: 4, faultyUnits: 0, repaired: "No", healthStatus: "Working", value: 125000, cost: 125000, location: "ISE Department Server Room 201", labRoom: "Main Server Bay", status: "Available", department: "ISE", subBranch: "ISE" }
+      { tag: "AST-ISE-038", name: "UPS - Make : APC – 10 KVA Online Rack", type: "UPS", quantity: 4, workingUnits: 4, faultyUnits: 0, repaired: "No", healthStatus: "Working", value: 125000, cost: 125000, location: "ISE Department Server Room 201", labRoom: "Main Server Bay", status: "Available", department: "ISE", subBranch: "ISE" },
+      { tag: "AST-ISE-039", name: "Lenovo MT2e(i3) Desktop Emerson BX UPS", type: "Desktop", quantity: 1, workingUnits: 1, faultyUnits: 0, repaired: "No", healthStatus: "Working", value: 55000, cost: 55000, location: "ISE lab 2", labRoom: "ISE lab 2", benchNumber: "Bench 02", serialNumber: "OPT-ISE-02", status: "Assigned", department: "ISE", subBranch: "ISE", assignee: "Sachin Joshi", assignedUser: "Sachin Joshi", employeeEmail: "sachin.joshi@gmail.com" }
     ];
     await Asset.insertMany(iseAssets);
   }

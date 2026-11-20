@@ -120,6 +120,32 @@ export const DEFAULT_EMPLOYEES = [
     avatar: 'P',
     permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
   },
+  {
+    id: 'USR-EMP-ISE-03',
+    name: 'Sachin Joshi',
+    email: 'sachin.joshi@gmail.com',
+    password: 'Employee@123',
+    department: 'ISE',
+    category: 'Engineering',
+    subBranch: 'ISE',
+    role: 'Employee',
+    title: 'Assistant Professor & Lab In-Charge',
+    avatar: 'S',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
+  {
+    id: 'USR-EMP-ISE-04',
+    name: 'JDP sir',
+    email: 'jdp.sir@college.edu',
+    password: 'Employee@123',
+    department: 'ISE',
+    category: 'Engineering',
+    subBranch: 'ISE',
+    role: 'Employee',
+    title: 'Senior Faculty (ISE Department)',
+    avatar: 'J',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
   // AI&ML Sub-Branch
   {
     id: 'USR-EMP-AIML-01',

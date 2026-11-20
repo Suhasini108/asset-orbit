@@ -18,7 +18,7 @@ const AppContext = createContext();
 
 export function AppProvider({ children }) {
   // Refresh local cache for clean green theme, pristine ISE inventory & matched 90-day renewals
-  if (!localStorage.getItem('ao_green_theme_v11')) {
+  if (!localStorage.getItem('ao_green_theme_v12')) {
     localStorage.removeItem('ao_categories');
     localStorage.removeItem('ao_assets');
     localStorage.removeItem('ao_subscriptions');
@@ -30,7 +30,7 @@ export function AppProvider({ children }) {
     localStorage.removeItem('ao_warranty_claims');
     localStorage.removeItem('ao_notifications');
     localStorage.removeItem('ao_software_catalogue');
-    localStorage.setItem('ao_green_theme_v11', 'true');
+    localStorage.setItem('ao_green_theme_v12', 'true');
   }
 
   // --- STATE WITH LOCALSTORAGE PERSISTENCE ---
@@ -51,26 +51,64 @@ export function AppProvider({ children }) {
 
   const [assets, setAssets] = useState(() => {
     const saved = localStorage.getItem('ao_assets');
+    let baseList = INITIAL_ASSETS;
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        return parsed.map(a => ({
-          ...a,
-          status: (a.status === 'Lost' || a.status === 'Stolen') ? 'In Repair' : a.status
-        }));
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map(a => a.id));
+          const missing = INITIAL_ASSETS.filter(a => !existingIds.has(a.id));
+          baseList = [...parsed, ...missing];
+        }
       } catch (e) {}
     }
-    return INITIAL_ASSETS;
+    return baseList.map(a => {
+      if (a.id === 'AST-ISE-039') {
+        return {
+          ...a,
+          status: 'Assigned',
+          assignedTo: (a.assignedTo && a.assignedTo !== 'Unassigned') ? a.assignedTo : 'Sachin Joshi',
+          assignedUser: (a.assignedUser && a.assignedUser !== 'Unassigned') ? a.assignedUser : 'Sachin Joshi',
+          assignedEmail: a.assignedEmail || 'sachin.joshi@gmail.com',
+          location: a.location || 'ISE lab 2',
+          labRoom: a.labRoom || 'ISE lab 2'
+        };
+      }
+      return {
+        ...a,
+        status: (a.status === 'Lost' || a.status === 'Stolen') ? 'In Repair' : a.status
+      };
+    });
   });
 
   const [subscriptions, setSubscriptions] = useState(() => {
     const saved = localStorage.getItem('ao_subscriptions');
-    return saved ? JSON.parse(saved) : INITIAL_SUBSCRIPTIONS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map(s => s.id));
+          const missing = INITIAL_SUBSCRIPTIONS.filter(s => !existingIds.has(s.id));
+          return [...parsed, ...missing];
+        }
+      } catch (e) {}
+    }
+    return INITIAL_SUBSCRIPTIONS;
   });
 
   const [tickets, setTickets] = useState(() => {
     const saved = localStorage.getItem('ao_tickets');
-    return saved ? JSON.parse(saved) : INITIAL_TICKETS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map(t => t.id));
+          const missing = INITIAL_TICKETS.filter(t => !existingIds.has(t.id));
+          return [...parsed, ...missing];
+        }
+      } catch (e) {}
+    }
+    return INITIAL_TICKETS;
   });
 
   const [shadowItLogs, setShadowItLogs] = useState(() => {

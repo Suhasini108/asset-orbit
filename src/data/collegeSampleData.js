@@ -67,8 +67,10 @@ export const INITIAL_ASSETS = [
     warrantyExpiry: '2022-06-30',
     purchaseDate: '2018-07-15',
     location: 'ISE Department Block Room 204',
-    status: 'Available',
-    assignedUser: 'ISE Lab 1 Pool',
+    status: 'Assigned',
+    assignedTo: 'JDP sir',
+    assignedUser: 'JDP sir',
+    assignedEmail: 'jdp.sir@college.edu',
     healthScore: 78,
     specs: { cpu: 'Intel Core i3', screen: '18.5" LED Monitor', os: 'Ubuntu / Windows Dual Boot' },
     timeline: [
@@ -1125,6 +1127,38 @@ export const INITIAL_ASSETS = [
     specs: { capacity: '10 KVA Online Double-Conversion', brand: 'APC' },
     timeline: [
       { date: '2022-05-10', event: 'Commissioned', notes: 'Central 10 KVA online power backup for entire ISE floor' }
+    ]
+  },
+  {
+    id: 'AST-ISE-039',
+    name: 'Lenovo MT2e(i3) Desktop Emerson BX UPS',
+    type: 'Desktop',
+    category: 'Engineering',
+    subBranch: 'ISE',
+    quantity: 1,
+    workingUnits: 1,
+    faultyUnits: 0,
+    repaired: 'No',
+    healthStatus: 'Working (1 Working)',
+    healthNotes: '1 Unit Operational with Dedicated Emerson BX UPS Power Backup',
+    labRoom: 'ISE lab 2',
+    benchNumber: 'Bench 02',
+    serialNumber: 'OPT-ISE-02',
+    cost: 55000,
+    salvageValue: 5000,
+    usefulLifeYears: 5,
+    warrantyExpiry: '2028-11-20',
+    purchaseDate: '2024-01-15',
+    location: 'ISE lab 2',
+    status: 'Assigned',
+    assignedTo: 'Sachin Joshi',
+    assignedUser: 'Sachin Joshi',
+    assignedEmail: 'sachin.joshi@gmail.com',
+    healthScore: 98,
+    specs: { processor: 'Intel Core i3', ups: 'Emerson BX UPS', memory: '8GB DDR3' },
+    timeline: [
+      { date: '2024-01-15', event: 'Purchased & Commissioned', notes: 'Installed in ISE Lab 2 with Emerson BX UPS' },
+      { date: '2026-11-20', event: 'Status Changed to Assigned', notes: 'Assigned to Sachin Joshi (sachin.joshi@gmail.com) by Workspace Admin' }
     ]
   }
 ];
