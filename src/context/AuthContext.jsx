@@ -509,6 +509,14 @@ export const getCategoryForDept = (dept) => {
 };
 
 export function AuthProvider({ children }) {
+  // Cleanup any invalid or misplaced ao_admin_email cached in browser
+  try {
+    const cachedAdmin = (localStorage.getItem('ao_admin_email') || '').toLowerCase();
+    if (cachedAdmin === 'sachin.joshi@gmail.com' || DEFAULT_EMPLOYEES.some(e => e.email?.toLowerCase() === cachedAdmin)) {
+      localStorage.removeItem('ao_admin_email');
+    }
+  } catch (e) {}
+
   // Registered employees stored in localStorage with full category & sub-branch coverage
   const [registeredEmployees, setRegisteredEmployees] = useState(() => {
     const saved = localStorage.getItem('ao_registered_employees');
@@ -691,11 +699,20 @@ export function AuthProvider({ children }) {
     };
 
     const isKnownAdmin = () => {
+      // Employees are NEVER administrators
+      if (emailLower === 'sachin.joshi@gmail.com' || isKnownEmployee()) {
+        return false;
+      }
       const storedAdminEmail = (localStorage.getItem('ao_admin_email') || '').toLowerCase();
+      const isValidStoredAdmin = storedAdminEmail &&
+        storedAdminEmail !== 'sachin.joshi@gmail.com' &&
+        !DEFAULT_EMPLOYEES.some(e => e.email?.toLowerCase() === storedAdminEmail) &&
+        !registeredEmployees.some(e => e.email?.toLowerCase() === storedAdminEmail);
+
       return (
         emailLower === 'admin@assetorbit.edu' ||
         emailLower === 'suhasinimugganavar@gmail.com' ||
-        (storedAdminEmail && emailLower === storedAdminEmail)
+        (isValidStoredAdmin && emailLower === storedAdminEmail)
       );
     };
 
@@ -894,6 +911,39 @@ export function AuthProvider({ children }) {
           localStorage.setItem('ao_registered_employees', JSON.stringify(updatedList));
           broadcastEmployees(updatedList);
         }
+      }
+
+      // Universal Employee Login across all laptops & devices:
+      // If employee enters password Employee@123, auto-provision and authenticate immediately on that laptop!
+      if (!matchedEmployee && (enteredPassword === 'Employee@123' || enteredPassword === 'Employee@1234')) {
+        const cleanName = emailLower.includes('@')
+          ? emailLower.split('@')[0]
+              .replace(/[._\-+]/g, ' ')
+              .split(' ')
+              .filter(Boolean)
+              .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(' ')
+          : 'Faculty / Staff Member';
+
+        const dept = 'ISE';
+        matchedEmployee = {
+          id: `USR-EMP-${Date.now().toString().slice(-4)}`,
+          name: cleanName,
+          email: emailLower,
+          password: 'Employee@123',
+          department: dept,
+          category: getCategoryForDept(dept),
+          subBranch: dept,
+          role: 'Employee',
+          title: 'Faculty / Staff Member',
+          avatar: cleanName.charAt(0).toUpperCase() || 'E',
+          permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+        };
+
+        const updatedList = [matchedEmployee, ...registeredEmployees.filter(e => e.email?.toLowerCase() !== emailLower)];
+        setRegisteredEmployees(updatedList);
+        localStorage.setItem('ao_registered_employees', JSON.stringify(updatedList));
+        broadcastEmployees(updatedList);
       }
 
       if (!matchedEmployee) {
