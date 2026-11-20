@@ -99,16 +99,28 @@ export default function DashboardPage({
     return map;
   }, [assets]);
 
-  // Employee Assigned Assets Isolation
+  // Employee Assigned Assets Isolation (Strictly personal equipment)
   const employeeAssignedAssets = useMemo(() => {
     const empName = (currentUser?.name || '').toLowerCase().trim();
     const empEmail = (currentUser?.email || '').toLowerCase().trim();
     if (!empName && !empEmail) return [];
-    return (assets || []).filter(a =>
-      (empName && a.assignedTo && a.assignedTo.toLowerCase().includes(empName)) ||
-      (empName && a.assignedUser && a.assignedUser.toLowerCase().includes(empName)) ||
-      (empEmail && a.assignedEmail && a.assignedEmail.toLowerCase() === empEmail)
-    );
+    return (assets || []).filter(a => {
+      const aTo = (a.assignedTo || '').toLowerCase().trim();
+      const aUser = (a.assignedUser || '').toLowerCase().trim();
+      const aEmail = (a.assignedEmail || '').toLowerCase().trim();
+
+      const matchesEmail = Boolean(empEmail && aEmail === empEmail);
+      const matchesName = Boolean(
+        empName && (
+          aTo === empName ||
+          aUser === empName ||
+          (aTo && aTo !== 'unassigned' && (aTo.includes(empName) || empName.includes(aTo))) ||
+          (aUser && aUser !== 'unassigned' && (aUser.includes(empName) || empName.includes(aUser)))
+        )
+      );
+
+      return matchesEmail || matchesName;
+    });
   }, [assets, currentUser]);
 
   // Employee Departmental Subscriptions Isolation

@@ -760,7 +760,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@assetorbit.edu"
+                    placeholder={selectedRole === 'Employee' ? 'e.g. sachin.joshi@gmail.com' : 'name@assetorbit.edu'}
                     className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-[#E5EAE5] text-xs text-[#172D27] focus:outline-none focus:border-[#315F50] shadow-xs"
                   />
                 </div>
@@ -789,6 +789,11 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {selectedRole === 'Employee' && (
+                  <p className="text-[11px] text-[#718078] mt-1.5">
+                    🔑 Designated staff password: <strong className="text-[#315F50]">Employee@123</strong>
+                  </p>
+                )}
               </div>
 
               {/* Remember Me and Forgot Password */}

@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export default function AddAssetModal({ isOpen, onClose, initialLab = null }) {
   const { categories, addAsset } = useApp();
-  const { registeredEmployees = [], currentUser } = useAuth();
+  const { registeredEmployees = [], registerEmployee, currentUser } = useAuth();
 
   const [formData, setFormData] = useState({
     name: initialLab ? `Dell OptiPlex 7090 Tower (${initialLab.dept} Lab)` : 'Dell OptiPlex 7090 Tower',
@@ -142,6 +142,24 @@ export default function AddAssetModal({ isOpen, onClose, initialLab = null }) {
     };
 
     addAsset(assetPayload, parseInt(formData.quantity, 10), currentUser?.name || 'Workspace Admin');
+
+    // If directly assigned to an employee, ensure their account exists so they can log in
+    if (assignDirectly && finalAssignedTo) {
+      const existing = (registeredEmployees || []).find(
+        e => (finalAssignedEmail && e.email?.toLowerCase() === finalAssignedEmail.toLowerCase()) ||
+             e.name?.toLowerCase() === finalAssignedTo.toLowerCase()
+      );
+      if (!existing && typeof registerEmployee === 'function') {
+        const autoEmail = finalAssignedEmail || `${finalAssignedTo.toLowerCase().replace(/[^a-z0-9]/g, '.')}@college.edu`;
+        registerEmployee({
+          name: finalAssignedTo,
+          email: autoEmail,
+          department: formData.subBranch || formData.category || 'ISE',
+          password: 'Employee@123'
+        });
+      }
+    }
+
     onClose();
   };
 

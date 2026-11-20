@@ -6,7 +6,7 @@ import { api } from '../../services/apiClient';
 
 export default function AssignSubscriptionModal({ isOpen, onClose, subscription: initialSub }) {
   const { subscriptions = [], updateSubscription, addNotification } = useApp();
-  const { registeredEmployees = [], currentUser } = useAuth();
+  const { registeredEmployees = [], registerEmployee, currentUser } = useAuth();
 
   // Filter ONLY available/active subscriptions
   const now = Date.now();
@@ -195,6 +195,23 @@ export default function AssignSubscriptionModal({ isOpen, onClose, subscription:
     // 1. Immediately update in local AppContext state (instant reactive feedback)
     if (typeof updateSubscription === 'function') {
       updateSubscription(targetSubscription.id, updatedData);
+    }
+
+    // Auto-register employee account so employee can log in immediately
+    if (empName) {
+      const existing = (registeredEmployees || []).find(
+        e => (empEmail && e.email?.toLowerCase() === empEmail.toLowerCase()) ||
+             e.name?.toLowerCase() === empName.toLowerCase()
+      );
+      if (!existing && typeof registerEmployee === 'function') {
+        const autoEmail = empEmail || `${empName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@college.edu`;
+        registerEmployee({
+          name: empName,
+          email: autoEmail,
+          department: empDept,
+          password: 'Employee@123'
+        });
+      }
     }
 
     // 2. Notification

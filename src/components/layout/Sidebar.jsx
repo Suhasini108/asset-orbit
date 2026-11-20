@@ -53,11 +53,21 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
   const empEmail = (currentUser.email || '').toLowerCase().trim();
   const empDept = (currentUser.department || '').toLowerCase().trim();
 
-  const assignedAssetsList = (assets || []).filter(
-    a => (empName && a.assignedTo && a.assignedTo.toLowerCase().includes(empName)) ||
-         (empName && a.assignedUser && a.assignedUser.toLowerCase().includes(empName)) ||
-         (empEmail && a.assignedEmail && a.assignedEmail.toLowerCase() === empEmail)
-  );
+  const assignedAssetsList = (assets || []).filter(a => {
+    const aTo = (a.assignedTo || '').toLowerCase().trim();
+    const aUser = (a.assignedUser || '').toLowerCase().trim();
+    const aEmail = (a.assignedEmail || '').toLowerCase().trim();
+
+    return Boolean(
+      (empEmail && aEmail === empEmail) ||
+      (empName && (
+        aTo === empName ||
+        aUser === empName ||
+        (aTo && aTo !== 'unassigned' && (aTo.includes(empName) || empName.includes(aTo))) ||
+        (aUser && aUser !== 'unassigned' && (aUser.includes(empName) || empName.includes(aUser)))
+      ))
+    );
+  });
   const assignedAssetsCount = assignedAssetsList.length;
 
   const assignedSubsList = (subscriptions || []).filter(

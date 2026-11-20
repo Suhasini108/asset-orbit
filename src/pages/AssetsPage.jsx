@@ -119,10 +119,18 @@ export default function AssetsPage({ onOpenAddAsset, onSelectAsset, onReportIssu
       if (isEmployee) {
         const empName = (currentUser?.name || '').toLowerCase().trim();
         const empEmail = (currentUser?.email || '').toLowerCase().trim();
+        const aTo = (asset.assignedTo || '').toLowerCase().trim();
+        const aUser = (asset.assignedUser || '').toLowerCase().trim();
+        const aEmail = (asset.assignedEmail || '').toLowerCase().trim();
+
         const matchesEmployee = Boolean(
-          (empName && asset.assignedTo && asset.assignedTo.toLowerCase().includes(empName)) ||
-          (empName && asset.assignedUser && asset.assignedUser.toLowerCase().includes(empName)) ||
-          (empEmail && asset.assignedEmail && asset.assignedEmail.toLowerCase() === empEmail)
+          (empEmail && aEmail === empEmail) ||
+          (empName && (
+            aTo === empName ||
+            aUser === empName ||
+            (aTo && aTo !== 'unassigned' && (aTo.includes(empName) || empName.includes(aTo))) ||
+            (aUser && aUser !== 'unassigned' && (aUser.includes(empName) || empName.includes(aUser)))
+          ))
         );
 
         if (!matchesEmployee) return false;

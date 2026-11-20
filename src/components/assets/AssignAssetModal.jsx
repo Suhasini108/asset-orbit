@@ -6,7 +6,7 @@ import { api } from '../../services/apiClient';
 
 export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset }) {
   const { assets = [], updateAsset, addNotification } = useApp();
-  const { registeredEmployees = [], currentUser } = useAuth();
+  const { registeredEmployees = [], registerEmployee, currentUser } = useAuth();
 
   const isAdmin = currentUser?.role === 'Admin';
   const isITManager = currentUser?.role === 'IT Manager';
@@ -177,6 +177,23 @@ export default function AssignAssetModal({ isOpen, onClose, asset: initialAsset 
 
     // 1. Immediately update in local state via AppContext (instant reactive feedback)
     updateAsset(targetAsset.id, updatedData, currentUser?.name || 'Administrator');
+
+    // Auto-register employee account so employee can log in immediately
+    if (empName) {
+      const existing = (registeredEmployees || []).find(
+        e => (empEmail && e.email?.toLowerCase() === empEmail.toLowerCase()) ||
+             e.name?.toLowerCase() === empName.toLowerCase()
+      );
+      if (!existing && typeof registerEmployee === 'function') {
+        const autoEmail = empEmail || `${empName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@college.edu`;
+        registerEmployee({
+          name: empName,
+          email: autoEmail,
+          department: empDept,
+          password: 'Employee@123'
+        });
+      }
+    }
 
     // 2. Notification
     addNotification({

@@ -706,7 +706,109 @@ export function AuthProvider({ children }) {
     }
 
     // C. Employee Authentication (Individual Email & Password)
-    const matchedEmployee = registeredEmployees.find(e => e.email.toLowerCase() === emailLower);
+    // 1. Direct match by exact email in registeredEmployees
+    let matchedEmployee = registeredEmployees.find(e => e.email?.toLowerCase() === emailLower);
+
+    // 2. Derive candidate human name from email (e.g. "sachin.joshi@gmail.com" -> "Sachin Joshi")
+    const cleanEmailName = emailLower.includes('@')
+      ? emailLower.split('@')[0]
+          .replace(/[._\-+]/g, ' ')
+          .split(' ')
+          .filter(Boolean)
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ')
+      : '';
+
+    // If not matched by exact email, check by candidate name in registeredEmployees
+    if (!matchedEmployee && cleanEmailName) {
+      matchedEmployee = registeredEmployees.find(e =>
+        e.name && (
+          e.name.toLowerCase() === cleanEmailName.toLowerCase() ||
+          e.name.toLowerCase().includes(cleanEmailName.toLowerCase()) ||
+          cleanEmailName.toLowerCase().includes(e.name.toLowerCase())
+        )
+      );
+      if (matchedEmployee) {
+        matchedEmployee = { ...matchedEmployee, email: emailLower };
+      }
+    }
+
+    // 3. If still not matched, check existing assets & subscriptions in localStorage
+    if (!matchedEmployee) {
+      let storedAssets = [];
+      try {
+        storedAssets = JSON.parse(localStorage.getItem('ao_assets') || '[]');
+      } catch (e) {}
+
+      let storedSubs = [];
+      try {
+        storedSubs = JSON.parse(localStorage.getItem('ao_subscriptions') || '[]');
+      } catch (e) {}
+
+      // Find an asset assigned to this email or candidate name
+      const assetMatch = storedAssets.find(a =>
+        (a.assignedEmail && a.assignedEmail.toLowerCase() === emailLower) ||
+        (a.assignedTo && cleanEmailName && (
+          a.assignedTo.toLowerCase() === cleanEmailName.toLowerCase() ||
+          a.assignedTo.toLowerCase().includes(cleanEmailName.toLowerCase()) ||
+          cleanEmailName.toLowerCase().includes(a.assignedTo.toLowerCase())
+        )) ||
+        (a.assignedUser && cleanEmailName && (
+          a.assignedUser.toLowerCase() === cleanEmailName.toLowerCase() ||
+          a.assignedUser.toLowerCase().includes(cleanEmailName.toLowerCase()) ||
+          cleanEmailName.toLowerCase().includes(a.assignedUser.toLowerCase())
+        ))
+      );
+
+      const subMatch = storedSubs.find(s =>
+        (s.assignedEmail && s.assignedEmail.toLowerCase() === emailLower) ||
+        (s.assignedEmployee && cleanEmailName && (
+          s.assignedEmployee.toLowerCase() === cleanEmailName.toLowerCase() ||
+          s.assignedEmployee.toLowerCase().includes(cleanEmailName.toLowerCase()) ||
+          cleanEmailName.toLowerCase().includes(s.assignedEmployee.toLowerCase())
+        )) ||
+        (s.owner && cleanEmailName && (
+          s.owner.toLowerCase() === cleanEmailName.toLowerCase() ||
+          s.owner.toLowerCase().includes(cleanEmailName.toLowerCase()) ||
+          cleanEmailName.toLowerCase().includes(s.owner.toLowerCase())
+        ))
+      );
+
+      // If an asset or subscription matches, OR if logging in with Employee master password
+      if (assetMatch || subMatch || enteredPassword === 'Employee@123') {
+        const resolvedName = assetMatch?.assignedTo || assetMatch?.assignedUser || subMatch?.assignedEmployee || cleanEmailName || 'Faculty / Staff Member';
+        const resolvedDept = assetMatch?.subBranch || assetMatch?.department || subMatch?.department || 'ISE';
+
+        // Auto-provision this employee profile
+        matchedEmployee = {
+          id: `USR-EMP-${Date.now().toString().slice(-4)}`,
+          name: resolvedName,
+          email: emailLower,
+          password: enteredPassword || 'Employee@123',
+          department: resolvedDept,
+          category: getCategoryForDept(resolvedDept),
+          subBranch: resolvedDept,
+          role: 'Employee',
+          title: 'Faculty / Staff Member',
+          avatar: resolvedName.charAt(0).toUpperCase() || 'E',
+          permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+        };
+
+        // If asset matched, attach assignedEmail and update localStorage so reactive views isolate correctly
+        if (assetMatch) {
+          const updatedAssets = storedAssets.map(a =>
+            a.id === assetMatch.id ? { ...a, assignedEmail: emailLower, assignedTo: resolvedName, assignedUser: resolvedName } : a
+          );
+          localStorage.setItem('ao_assets', JSON.stringify(updatedAssets));
+        }
+
+        // Save newly provisioned employee into registeredEmployees
+        const updatedList = [matchedEmployee, ...registeredEmployees.filter(e => e.email?.toLowerCase() !== emailLower)];
+        setRegisteredEmployees(updatedList);
+        localStorage.setItem('ao_registered_employees', JSON.stringify(updatedList));
+        broadcastEmployees(updatedList);
+      }
+    }
 
     if (matchedEmployee) {
       if (matchedEmployee.password === enteredPassword || enteredPassword === 'Employee@123') {
@@ -731,7 +833,7 @@ export function AuthProvider({ children }) {
     if (selectedRoleHint === 'Employee' || (!selectedRoleHint && enteredEmail.includes('@'))) {
       return {
         success: false,
-        error: 'Employee account not found for this email. Please switch to the Sign Up tab to create your employee profile.'
+        error: 'Employee account not found for this email. Use Employee@123 or switch to the Sign Up tab to create your employee profile.'
       };
     }
 

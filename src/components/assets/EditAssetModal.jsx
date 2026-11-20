@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export default function EditAssetModal({ isOpen, onClose, asset }) {
   const { categories, updateAsset, logActivity } = useApp();
-  const { currentUser } = useAuth();
+  const { registeredEmployees = [], registerEmployee, currentUser } = useAuth();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -91,6 +91,22 @@ export default function EditAssetModal({ isOpen, onClose, asset }) {
       location: formData.location.trim(),
       warrantyExpiry: formData.warrantyExpiry
     }, currentUser?.name || 'Administrator');
+
+    // Auto-register employee if assigned to a new faculty/staff
+    if (finalAssignedTo && finalStatus === 'Assigned') {
+      const existing = (registeredEmployees || []).find(
+        e => e.name?.toLowerCase() === finalAssignedTo.toLowerCase()
+      );
+      if (!existing && typeof registerEmployee === 'function') {
+        const autoEmail = `${finalAssignedTo.toLowerCase().replace(/[^a-z0-9]/g, '.')}@college.edu`;
+        registerEmployee({
+          name: finalAssignedTo,
+          email: autoEmail,
+          department: formData.subBranch || formData.category || 'ISE',
+          password: 'Employee@123'
+        });
+      }
+    }
 
     onClose();
   };
