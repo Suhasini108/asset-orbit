@@ -86,6 +86,19 @@ const DEFAULT_PRESET_EMPLOYEES = [
     permissions: ["tickets:create", "assets:view_assigned", "loaners:request"]
   },
   {
+    id: "USR-EMP-ISE-05",
+    name: "Arathi Nayak",
+    email: "arathi.nayak@college.edu",
+    password: "Employee@123",
+    department: "ISE",
+    category: "Engineering",
+    subBranch: "ISE",
+    role: "Employee",
+    title: "Assistant Professor & Faculty (ISE)",
+    avatar: "A",
+    permissions: ["tickets:create", "assets:view_assigned", "loaners:request"]
+  },
+  {
     id: "USR-EMP-AIML-01",
     name: "Dr. Rajesh Hegde",
     email: "rajesh.hegde@college.edu",
@@ -210,11 +223,21 @@ class SyncStore {
         const raw = fs.readFileSync(TMP_FILE, "utf8");
         const parsed = JSON.parse(raw);
         if (parsed && Array.isArray(parsed.assets)) {
+          // Merge any newly introduced canonical assets (e.g. AST-ISE-040) if not present
+          const existingIds = new Set(parsed.assets.map(a => a.id));
+          const missing = INITIAL_ASSETS.filter(a => !existingIds.has(a.id));
+          const mergedAssets = [...parsed.assets, ...missing];
+
+          // Merge any newly introduced preset employees (e.g. Arathi Nayak) if not present
+          const existingEmps = new Set((parsed.registeredEmployees || []).map(e => (e.email || "").toLowerCase()));
+          const missingEmps = DEFAULT_PRESET_EMPLOYEES.filter(e => !existingEmps.has((e.email || "").toLowerCase()));
+          const mergedEmps = [...(parsed.registeredEmployees || []), ...missingEmps];
+
           this.state = {
-            assets: parsed.assets,
+            assets: mergedAssets,
             subscriptions: Array.isArray(parsed.subscriptions) ? parsed.subscriptions : this.state.subscriptions,
             tickets: Array.isArray(parsed.tickets) ? parsed.tickets : this.state.tickets,
-            registeredEmployees: Array.isArray(parsed.registeredEmployees) ? parsed.registeredEmployees : this.state.registeredEmployees,
+            registeredEmployees: mergedEmps,
             lastModified: parsed.lastModified || Date.now(),
             version: parsed.version || 1
           };
@@ -453,12 +476,25 @@ class SyncStore {
       const uName = (user.name || "").toLowerCase().trim();
       const uEmail = (user.email || "").toLowerCase().trim();
       list = list.filter(a => {
+        if (a.status !== "Assigned") return false;
         const aTo = (a.assignedTo || a.assignee || "").toLowerCase().trim();
         const aUser = (a.assignedUser || "").toLowerCase().trim();
         const aEmail = (a.assignedEmail || a.employeeEmail || "").toLowerCase().trim();
-        return (aEmail && aEmail === uEmail) ||
-               (aTo && aTo !== "unassigned" && (aTo.includes(uName) || uName.includes(aTo))) ||
-               (aUser && aUser !== "unassigned" && (aUser.includes(uName) || uName.includes(aUser)));
+        const firstNameU = uName ? uName.split(" ")[0] : "";
+        const firstNameA = (aTo || aUser) ? (aTo || aUser).split(" ")[0] : "";
+
+        const matchesEmail = Boolean(uEmail && aEmail === uEmail);
+        const matchesName = Boolean(
+          uName && (
+            aTo === uName ||
+            aUser === uName ||
+            (aTo && aTo !== "unassigned" && (aTo.includes(uName) || uName.includes(aTo))) ||
+            (aUser && aUser !== "unassigned" && (aUser.includes(uName) || uName.includes(aUser))) ||
+            (firstNameU.length > 2 && firstNameU === firstNameA)
+          )
+        );
+
+        return matchesEmail || matchesName;
       });
     }
 

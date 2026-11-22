@@ -117,11 +117,14 @@ export default function AssetsPage({ onOpenAddAsset, onSelectAsset, onReportIssu
     return assets.filter(asset => {
       // If Employee role: strictly restrict to equipment assigned to this employee
       if (isEmployee) {
+        if (asset.status === 'Available' || asset.status === 'Retired' || asset.status === 'Disposed') return false;
         const empName = (currentUser?.name || '').toLowerCase().trim();
         const empEmail = (currentUser?.email || '').toLowerCase().trim();
-        const aTo = (asset.assignedTo || '').toLowerCase().trim();
+        const aTo = (asset.assignedTo || asset.assignee || '').toLowerCase().trim();
         const aUser = (asset.assignedUser || '').toLowerCase().trim();
-        const aEmail = (asset.assignedEmail || '').toLowerCase().trim();
+        const aEmail = (asset.assignedEmail || asset.employeeEmail || '').toLowerCase().trim();
+        const firstNameEmp = empName.split(' ')[0] || '';
+        const firstNameAssignee = (aTo || aUser).split(' ')[0] || '';
 
         const matchesEmployee = Boolean(
           (empEmail && aEmail === empEmail) ||
@@ -129,7 +132,8 @@ export default function AssetsPage({ onOpenAddAsset, onSelectAsset, onReportIssu
             aTo === empName ||
             aUser === empName ||
             (aTo && aTo !== 'unassigned' && (aTo.includes(empName) || empName.includes(aTo))) ||
-            (aUser && aUser !== 'unassigned' && (aUser.includes(empName) || empName.includes(aUser)))
+            (aUser && aUser !== 'unassigned' && (aUser.includes(empName) || empName.includes(aUser))) ||
+            (firstNameEmp.length > 2 && firstNameEmp === firstNameAssignee)
           ))
         );
 

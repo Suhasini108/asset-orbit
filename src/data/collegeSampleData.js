@@ -1160,6 +1160,43 @@ export const INITIAL_ASSETS = [
       { date: '2024-01-15', event: 'Purchased & Commissioned', notes: 'Installed in ISE Lab 2 with Emerson BX UPS' },
       { date: '2026-11-20', event: 'Status Changed to Assigned', notes: 'Assigned to Sachin Joshi (sachin.joshi@gmail.com) by Workspace Admin' }
     ]
+  },
+  {
+    id: 'AST-ISE-040',
+    tag: 'AST-ISE-040',
+    name: 'Lenovo S510 (i5) Desktop - APC 550 UPS',
+    type: 'Desktop',
+    category: 'Engineering',
+    subBranch: 'ISE',
+    department: 'ISE',
+    quantity: 1,
+    workingUnits: 1,
+    faultyUnits: 0,
+    repaired: 'No',
+    healthStatus: 'Working (1 Working)',
+    healthNotes: '1 Unit Operational with Dedicated APC 550 UPS Power Backup',
+    labRoom: 'ISE lab 2',
+    benchNumber: 'ISE-LAB02',
+    serialNumber: 'OPT-ISE-03',
+    cost: 55000,
+    value: 55000,
+    salvageValue: 5000,
+    usefulLifeYears: 5,
+    warrantyExpiry: '2028-11-22',
+    purchaseDate: '2024-02-10',
+    location: 'ISE lab 2',
+    status: 'Assigned',
+    assignedTo: 'Arathi Nayak',
+    assignedUser: 'Arathi Nayak',
+    assignee: 'Arathi Nayak',
+    assignedEmail: 'arathi.nayak@college.edu',
+    employeeEmail: 'arathi.nayak@college.edu',
+    healthScore: 98,
+    specs: { processor: 'Intel Core i5', ups: 'APC 550 UPS', memory: '16GB DDR4' },
+    timeline: [
+      { date: '2024-02-10', event: 'Purchased & Commissioned', notes: 'Installed in ISE Lab 2 with APC 550 UPS' },
+      { date: '2026-11-22', event: 'Status Changed to Assigned', notes: 'Assigned to Arathi Nayak (arathi.nayak@college.edu) by Workspace Admin' }
+    ]
   }
 ];
 

@@ -5,10 +5,24 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    host: '0.0.0.0'
+    host: '0.0.0.0',
+    proxy: {
+      '/api': {
+        target: 'https://asset-orbit-app.vercel.app',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   },
   preview: {
     port: 3000,
-    host: '0.0.0.0'
+    host: '0.0.0.0',
+    proxy: {
+      '/api': {
+        target: 'https://asset-orbit-app.vercel.app',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   }
 });

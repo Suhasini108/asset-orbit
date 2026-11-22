@@ -146,6 +146,19 @@ export const DEFAULT_EMPLOYEES = [
     avatar: 'J',
     permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
   },
+  {
+    id: 'USR-EMP-ISE-05',
+    name: 'Arathi Nayak',
+    email: 'arathi.nayak@college.edu',
+    password: 'Employee@123',
+    department: 'ISE',
+    category: 'Engineering',
+    subBranch: 'ISE',
+    role: 'Employee',
+    title: 'Assistant Professor & Faculty (ISE)',
+    avatar: 'A',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
   // AI&ML Sub-Branch
   {
     id: 'USR-EMP-AIML-01',

@@ -1,6 +1,8 @@
 // Unified API Client for AssetOrbit
 // Dynamically resolves production Vercel /api vs local development, attaching JWT auth tokens
 
+const PROD_API = 'https://asset-orbit-app.vercel.app/api';
+
 const getBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL.replace(/\/$/, '');
@@ -34,16 +36,42 @@ export async function apiRequest(endpoint, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // 2.5-second client-side timeout to prevent any async freeze or network lock
+  // 3-second client-side timeout to prevent any async freeze or network lock
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 2500);
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
 
   try {
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       ...options,
       headers,
       signal: controller.signal
-    });
+    }).catch(() => null);
+
+    // If local fetch failed or returned HTML/404 on localhost, seamlessly fallback to central cloud API
+    const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    if ((!response || !response.ok) && isLocalhost && !url.startsWith(PROD_API)) {
+      const fallbackUrl = `${PROD_API}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+      try {
+        const cloudResponse = await fetch(fallbackUrl, {
+          ...options,
+          headers,
+          signal: controller.signal
+        });
+        if (cloudResponse) {
+          response = cloudResponse;
+        }
+      } catch (err) {}
+    }
+
+    if (!response) {
+      return { ok: false, status: 0, offline: true, error: 'Network request failed' };
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      // In case an HTML error page was returned
+      return { ok: false, status: response.status, offline: true, error: 'Non-JSON response' };
+    }
 
     const data = await response.json().catch(() => ({}));
     return {

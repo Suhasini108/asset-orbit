@@ -105,17 +105,22 @@ export default function DashboardPage({
     const empEmail = (currentUser?.email || '').toLowerCase().trim();
     if (!empName && !empEmail) return [];
     return (assets || []).filter(a => {
-      const aTo = (a.assignedTo || '').toLowerCase().trim();
+      if (a.status === 'Available' || a.status === 'Retired' || a.status === 'Disposed') return false;
+      const aTo = (a.assignedTo || a.assignee || '').toLowerCase().trim();
       const aUser = (a.assignedUser || '').toLowerCase().trim();
-      const aEmail = (a.assignedEmail || '').toLowerCase().trim();
+      const aEmail = (a.assignedEmail || a.employeeEmail || '').toLowerCase().trim();
 
       const matchesEmail = Boolean(empEmail && aEmail === empEmail);
+      const firstNameEmp = empName.split(' ')[0] || '';
+      const firstNameAssignee = (aTo || aUser).split(' ')[0] || '';
+
       const matchesName = Boolean(
         empName && (
           aTo === empName ||
           aUser === empName ||
           (aTo && aTo !== 'unassigned' && (aTo.includes(empName) || empName.includes(aTo))) ||
-          (aUser && aUser !== 'unassigned' && (aUser.includes(empName) || empName.includes(aUser)))
+          (aUser && aUser !== 'unassigned' && (aUser.includes(empName) || empName.includes(aUser))) ||
+          (firstNameEmp.length > 2 && firstNameEmp === firstNameAssignee)
         )
       );
 

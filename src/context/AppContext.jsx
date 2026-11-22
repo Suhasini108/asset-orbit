@@ -55,6 +55,11 @@ export function AppProvider({ children }) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          const has40 = parsed.some(a => a.id === 'AST-ISE-040' || a.tag === 'AST-ISE-040');
+          if (!has40) {
+            const ast40 = INITIAL_ASSETS.find(a => a.id === 'AST-ISE-040');
+            if (ast40) return [ast40, ...parsed];
+          }
           return parsed;
         }
       } catch (e) {}
@@ -249,7 +254,18 @@ export function AppProvider({ children }) {
       if (res.ok && res.raw) {
         if (res.raw.upToDate) return;
         if (Array.isArray(res.raw.assets)) {
-          setAssets(res.raw.assets);
+          setAssets(prev => {
+            const serverAssetIds = new Set(res.raw.assets.map(a => a.id));
+            const localOnly = (prev || []).filter(a => a.id && !serverAssetIds.has(a.id));
+            if (localOnly.length > 0) {
+              // Automatically push local-only assets (created offline or on localhost) to the central server
+              localOnly.forEach(item => {
+                dispatchMutation('ASSET_ADD', { asset: item }, 'AutoSync');
+              });
+              return [...res.raw.assets, ...localOnly];
+            }
+            return res.raw.assets;
+          });
         }
         if (Array.isArray(res.raw.subscriptions)) {
           setSubscriptions(res.raw.subscriptions);
