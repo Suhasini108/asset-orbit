@@ -1,0 +1,9 @@
+{
+  "appId": "com.assetorbit.app",
+  "appName": "AssetOrbit",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  }
+}
