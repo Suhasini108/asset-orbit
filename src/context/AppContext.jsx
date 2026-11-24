@@ -18,7 +18,7 @@ const AppContext = createContext();
 
 export function AppProvider({ children }) {
   // Refresh local cache for clean green theme, pristine ISE inventory & matched 90-day renewals
-  if (!localStorage.getItem('ao_green_theme_v12')) {
+  if (!localStorage.getItem('ao_green_theme_v15')) {
     localStorage.removeItem('ao_categories');
     localStorage.removeItem('ao_assets');
     localStorage.removeItem('ao_subscriptions');
@@ -30,7 +30,7 @@ export function AppProvider({ children }) {
     localStorage.removeItem('ao_warranty_claims');
     localStorage.removeItem('ao_notifications');
     localStorage.removeItem('ao_software_catalogue');
-    localStorage.setItem('ao_green_theme_v12', 'true');
+    localStorage.setItem('ao_green_theme_v15', 'true');
   }
 
   // --- STATE WITH LOCALSTORAGE PERSISTENCE ---
@@ -55,10 +55,10 @@ export function AppProvider({ children }) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const has40 = parsed.some(a => a.id === 'AST-ISE-040' || a.tag === 'AST-ISE-040');
-          if (!has40) {
-            const ast40 = INITIAL_ASSETS.find(a => a.id === 'AST-ISE-040');
-            if (ast40) return [ast40, ...parsed];
+          const existingIds = new Set(parsed.map(a => a.id));
+          const missingCanonical = INITIAL_ASSETS.filter(a => !existingIds.has(a.id));
+          if (missingCanonical.length > 0) {
+            return [...missingCanonical, ...parsed];
           }
           return parsed;
         }

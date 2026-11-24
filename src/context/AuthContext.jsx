@@ -159,6 +159,19 @@ export const DEFAULT_EMPLOYEES = [
     avatar: 'A',
     permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
   },
+  {
+    id: 'USR-EMP-ISE-06',
+    name: 'Tanveer Ahmad',
+    email: 'tanveer.ahmad@college.edu',
+    password: 'Employee@123',
+    department: 'ISE',
+    category: 'Engineering',
+    subBranch: 'ISE',
+    role: 'Employee',
+    title: 'Assistant Professor & Faculty (ISE)',
+    avatar: 'T',
+    permissions: ['tickets:create', 'assets:view_assigned', 'loaners:request']
+  },
   // AI&ML Sub-Branch
   {
     id: 'USR-EMP-AIML-01',
@@ -763,9 +776,13 @@ export function AuthProvider({ children }) {
     };
 
     const isKnownITManager = () => {
+      if (isKnownEmployee()) return false;
+      const storedItManagerEmail = (localStorage.getItem('ao_itmanager_email') || '').toLowerCase();
       return (
         emailLower === 'itmanager@assetorbit.edu' ||
-        emailLower === 'itmanager@gmail.com'
+        emailLower === 'itmanager@gmail.com' ||
+        (storedItManagerEmail && emailLower === storedItManagerEmail) ||
+        (enteredPassword === DESIGNATED_PASSWORDS.IT_MANAGER || enteredPassword === 'Manager@123' || enteredPassword === 'ITManager@123')
       );
     };
 

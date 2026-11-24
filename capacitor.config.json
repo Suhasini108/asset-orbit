@@ -4,6 +4,10 @@
   "webDir": "dist",
   "server": {
     "androidScheme": "https",
-    "cleartext": true
+    "cleartext": true,
+    "allowNavigation": [
+      "asset-orbit-app.vercel.app",
+      "*.vercel.app"
+    ]
   }
 }

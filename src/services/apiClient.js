@@ -1,14 +1,26 @@
 // Unified API Client for AssetOrbit
 // Dynamically resolves production Vercel /api vs local development, attaching JWT auth tokens
 
-const PROD_API = 'https://asset-orbit-app.vercel.app/api';
+export const PROD_API = 'https://asset-orbit-app.vercel.app/api';
 
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL.replace(/\/$/, '');
   }
   if (typeof window !== 'undefined') {
-    // In production Vercel or same-origin deployment
+    // 1. Check if running inside Capacitor Android/iOS Native Webview or mobile app
+    const isNativeMobile = Boolean(
+      window.Capacitor || 
+      window.Android || 
+      window.location.protocol === 'capacitor:' || 
+      window.location.protocol === 'ionic:' ||
+      (window.location.hostname === 'localhost' && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent))
+    );
+    if (isNativeMobile) {
+      return PROD_API;
+    }
+
+    // 2. In production Vercel or custom domain deployment
     if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
       return `${window.location.origin}/api`;
     }
@@ -24,7 +36,8 @@ export function getAuthToken() {
 }
 
 export async function apiRequest(endpoint, options = {}) {
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const currentBase = getBaseUrl();
+  const url = endpoint.startsWith('http') ? endpoint : `${currentBase}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   const token = getAuthToken();
 
   const headers = {
@@ -36,9 +49,9 @@ export async function apiRequest(endpoint, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // 3-second client-side timeout to prevent any async freeze or network lock
+  // 6-second client-side timeout to prevent any async freeze or network lock
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 3000);
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
 
   try {
     let response = await fetch(url, {
@@ -47,16 +60,19 @@ export async function apiRequest(endpoint, options = {}) {
       signal: controller.signal
     }).catch(() => null);
 
-    // If local fetch failed or returned HTML/404 on localhost, seamlessly fallback to central cloud API
+    // If local fetch failed or returned HTML/404 on localhost, seamlessly fallback to central cloud API with fresh controller
     const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
     if ((!response || !response.ok) && isLocalhost && !url.startsWith(PROD_API)) {
       const fallbackUrl = `${PROD_API}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
       try {
+        const fallbackCtrl = new AbortController();
+        const fallbackTimeout = setTimeout(() => fallbackCtrl.abort(), 6000);
         const cloudResponse = await fetch(fallbackUrl, {
           ...options,
           headers,
-          signal: controller.signal
+          signal: fallbackCtrl.signal
         });
+        clearTimeout(fallbackTimeout);
         if (cloudResponse) {
           response = cloudResponse;
         }

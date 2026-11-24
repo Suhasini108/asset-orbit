@@ -99,6 +99,19 @@ const DEFAULT_PRESET_EMPLOYEES = [
     permissions: ["tickets:create", "assets:view_assigned", "loaners:request"]
   },
   {
+    id: "USR-EMP-ISE-06",
+    name: "Tanveer Ahmad",
+    email: "tanveer.ahmad@college.edu",
+    password: "Employee@123",
+    department: "ISE",
+    category: "Engineering",
+    subBranch: "ISE",
+    role: "Employee",
+    title: "Assistant Professor & Faculty (ISE)",
+    avatar: "T",
+    permissions: ["tickets:create", "assets:view_assigned", "loaners:request"]
+  },
+  {
     id: "USR-EMP-AIML-01",
     name: "Dr. Rajesh Hegde",
     email: "rajesh.hegde@college.edu",
